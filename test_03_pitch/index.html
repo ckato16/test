@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pitch & Spectrum Visualizer (0–2000 Hz, Uniform Bars)</title>
+<style>
+  body {
+    background:#fff;
+    color:#000;
+    font-family:Arial, sans-serif;
+    text-align:center;
+    margin:0;
+    padding:0;
+  }
+  h1 { margin:20px; }
+  #pitch, #freq { font-size:24px; margin:10px; }
+  #canvas {
+    display:block;
+    margin:20px auto;
+    border:1px solid #ccc;
+    background:#fafafa;
+  }
+  #status { color:#666; margin:10px; }
+</style>
+</head>
+<body>
+
+<h1>🎵 Pitch & Spectrum Visualizer</h1>
+<div id="pitch">Pitch: —</div>
+<div id="freq">Freq: — Hz</div>
+<canvas id="canvas" width="900" height="400"></canvas>
+<div id="status">Allow microphone access to begin.</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const pitchEl = document.getElementById("pitch");
+const freqEl  = document.getElementById("freq");
+const statusEl= document.getElementById("status");
+
+navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+  statusEl.textContent="Listening...";
+  const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 4096;
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  const timeData = new Float32Array(analyser.fftSize);
+  const source = audioCtx.createMediaStreamSource(stream);
+  source.connect(analyser);
+
+  const maxFreq = 2000;                 // Limit display 0–2000 Hz
+  const Nyquist = audioCtx.sampleRate/2;
+  const maxBin = Math.floor(bufferLength*(maxFreq/Nyquist));
+  const leftMargin = 50, bottomMargin = 40, topMargin = 10;
+
+  function draw(){
+    analyser.getByteFrequencyData(dataArray);
+    analyser.getFloatTimeDomainData(timeData);
+    const freq = autoCorrelate(timeData,audioCtx.sampleRate);
+
+    // --- Clear background ---
+    ctx.fillStyle="#fafafa";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // --- Axes ---
+    const graphW = canvas.width-leftMargin-20;
+    const graphH = canvas.height-bottomMargin-topMargin;
+    const originX = leftMargin;
+    const originY = canvas.height-bottomMargin;
+    ctx.strokeStyle="#000";
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(originX,originY);
+    ctx.lineTo(originX+graphW,originY);
+    ctx.moveTo(originX,originY);
+    ctx.lineTo(originX,topMargin);
+    ctx.stroke();
+
+    // --- X-axis ticks (0–2000 Hz) ---
+    ctx.font="12px Arial";
+    ctx.fillStyle="#000";
+    const tickCount=10;
+    for(let i=0;i<=tickCount;i++){
+      const f=(i/tickCount)*maxFreq;
+      const x=originX+(f/maxFreq)*graphW;
+      ctx.beginPath();
+      ctx.moveTo(x,originY);
+      ctx.lineTo(x,originY+5);
+      ctx.stroke();
+      ctx.fillText(f.toFixed(0),x-10,originY+20);
+    }
+    ctx.fillText("Frequency (Hz)",originX+graphW/2-40,originY+35);
+
+    // --- Y-axis ticks (Amplitude 0–255) ---
+    const yTicks=5;
+    for(let i=0;i<=yTicks;i++){
+      const val=(i/yTicks)*255;
+      const y=originY-(i/yTicks)*graphH;
+      ctx.beginPath();
+      ctx.moveTo(originX-5,y);
+      ctx.lineTo(originX,y);
+      ctx.stroke();
+      ctx.fillText(val.toFixed(0),originX-35,y+4);
+    }
+    ctx.save();
+    ctx.translate(15,canvas.height/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText("Amplitude (0–255)",0,0);
+    ctx.restore();
+
+    // --- Spectrum bars (uniform color) ---
+    const barWidth = graphW / maxBin;
+    ctx.fillStyle = "#4A90E2";   // Blue bars
+    for(let i=0;i<maxBin;i++){
+      const barHeight = (dataArray[i]/255)*graphH;
+      const x = originX + i*barWidth;
+      const y = originY - barHeight;
+      ctx.fillRect(x, y, barWidth, barHeight);
+    }
+
+    // --- Pitch line ---
+    if(freq>0 && freq<=maxFreq){
+      const {note,octave} = freqToNoteName(freq);
+      pitchEl.textContent=`Pitch: ${note}${octave}`;
+      freqEl.textContent=`Freq: ${freq.toFixed(1)} Hz`;
+      const xLine = originX + (freq/maxFreq)*graphW;
+      ctx.strokeStyle="red";
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(xLine,topMargin);
+      ctx.lineTo(xLine,originY);
+      ctx.stroke();
+      ctx.fillStyle="red";
+      ctx.fillText(`${note}${octave} (${freq.toFixed(1)} Hz)`,xLine+5,topMargin+15);
+    } else {
+      pitchEl.textContent="Pitch: —";
+      freqEl.textContent="Freq: — Hz";
+    }
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+}).catch(err=>{
+  statusEl.textContent="Microphone access denied: "+err.message;
+});
+
+// -------- Pitch detection --------
+function autoCorrelate(buf,sampleRate){
+  let SIZE=buf.length;
+  let rms=0;
+  for(let i=0;i<SIZE;i++)rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/SIZE);
+  if(rms<0.01)return -1;
+  let r1=0,r2=SIZE-1,thres=0.2;
+  for(let i=0;i<SIZE/2;i++)if(Math.abs(buf[i])<thres){r1=i;break;}
+  for(let i=1;i<SIZE/2;i++)if(Math.abs(buf[SIZE-i])<thres){r2=SIZE-i;break;}
+  buf=buf.slice(r1,r2);SIZE=buf.length;
+  const c=new Array(SIZE).fill(0);
+  for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE-i;j++)c[i]+=buf[j]*buf[j+i];
+  let d=0;while(c[d]>c[d+1])d++;
+  let maxval=-1,maxpos=-1;
+  for(let i=d;i<SIZE;i++){if(c[i]>maxval){maxval=c[i];maxpos=i;}}
+  let T0=maxpos;
+  return sampleRate/T0;
+}
+
+// -------- Frequency → note --------
+function freqToNoteName(f){
+  const A4=440;
+  const noteNum=12*Math.log2(f/A4)+69;
+  const n=Math.round(noteNum);
+  const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const note=names[n%12];
+  const octave=Math.floor(n/12)-1;
+  return {note,octave};
+}
+</script>
+</body>
+</html>
