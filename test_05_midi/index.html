@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Falling Piano Roll Game</title>
+</head>
+<body>
+<h2>MIDI Falling Piano Roll Game</h2>
+<input type="file" id="midiFile" accept=".mid,.midi"><br><br>
+<button id="playBtn" disabled>Play</button>
+<button id="stopBtn" disabled>Stop</button>
+<span id="scoreDisplay">Score: 0%</span><br><br>
+
+<canvas id="pianoRoll" height="500" style="border:1px solid #ccc; cursor:pointer;"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/es6/core.js"></script>
+
+<script>
+const fileInput = document.getElementById('midiFile');
+const playBtn = document.getElementById('playBtn');
+const stopBtn = document.getElementById('stopBtn');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const canvas = document.getElementById('pianoRoll');
+const ctx = canvas.getContext('2d');
+
+let notes = [];
+let startTime = 0;
+let isPlaying = false;
+let animationId = null;
+let scrollSpeed = 150;
+let hitNotes = 0, missedNotes = 0, totalNotes = 0;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Piano setup
+const firstMidi = 24; // C1
+const lastMidi = 108; // C8
+const whiteKeys = [0, 2, 4, 5, 7, 9, 11];
+const keyWidth = 20; // width of single white key
+let whiteKeyCount = 0;
+for (let m = firstMidi; m <= lastMidi; m++) {
+  if (whiteKeys.includes(m % 12)) whiteKeyCount++;
+}
+canvas.width = whiteKeyCount * keyWidth;
+const keyHeight = 80;
+const rollHeight = canvas.height - keyHeight;
+let pressedKeys = new Set();
+
+fileInput.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const buffer = await file.arrayBuffer();
+  const ns = core.midiToSequenceProto(buffer);
+  if (!ns.notes || ns.notes.length === 0) return alert("No notes found!");
+
+  notes = ns.notes.map(n => ({
+    midi: n.pitch,
+    start: n.startTime,
+    duration: n.endTime - n.startTime,
+    velocity: n.velocity / 127,
+    hit: false,
+    missed: false
+  }));
+  notes.sort((a, b) => a.start - b.start);
+  totalNotes = notes.length;
+  hitNotes = missedNotes = 0;
+  updateScore();
+  playBtn.disabled = false;
+});
+
+playBtn.addEventListener('click', startPlayback);
+stopBtn.addEventListener('click', stopPlayback);
+
+canvas.addEventListener('click', e => {
+  if (!isPlaying) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const midi = xToMidi(x);
+  playKeySound(midi);
+
+  const currentTime = audioCtx.currentTime - startTime;
+  notes.forEach(note => {
+    const y = (currentTime - note.start) * scrollSpeed;
+    const noteBottom = y + note.duration * scrollSpeed;
+    if (!note.hit && !note.missed && note.midi === midi) {
+      if (noteBottom >= rollHeight - 10 && noteBottom <= rollHeight + 10) {
+        note.hit = true;
+        hitNotes++;
+        updateScore();
+      }
+    }
+  });
+});
+
+function startPlayback() {
+  if (!notes.length) return;
+  if (isPlaying) return;
+  isPlaying = true;
+  playBtn.disabled = true;
+  stopBtn.disabled = false;
+  startTime = audioCtx.currentTime;
+  notes.forEach(n => { n.hit = false; n.missed = false; });
+  hitNotes = missedNotes = 0;
+  updateScore();
+  draw();
+}
+
+function stopPlayback() {
+  if (!isPlaying) return;
+  isPlaying = false;
+  playBtn.disabled = false;
+  stopBtn.disabled = true;
+  cancelAnimationFrame(animationId);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawKeyboard();
+}
+
+function playKeySound(midi) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+  gain.gain.value = 0.2;
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.25);
+  pressedKeys.add(midi);
+  setTimeout(() => pressedKeys.delete(midi), 150);
+}
+
+function midiToX(midi) {
+  let whiteCount = 0;
+  for (let i = firstMidi; i < midi; i++) {
+    if (whiteKeys.includes(i % 12)) whiteCount++;
+  }
+  return whiteCount * keyWidth;
+}
+
+function xToMidi(x) {
+  const approxWhite = Math.floor(x / keyWidth);
+  let whiteCount = 0;
+  for (let m = firstMidi; m <= lastMidi; m++) {
+    if (whiteKeys.includes(m % 12)) {
+      if (whiteCount === approxWhite) return m;
+      whiteCount++;
+    }
+  }
+  return 60;
+}
+
+function draw() {
+  if (!isPlaying) return;
+  const currentTime = audioCtx.currentTime - startTime;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  notes.forEach(note => {
+    const y = (currentTime - note.start) * scrollSpeed;
+    const h = note.duration * scrollSpeed;
+    const x = midiToX(note.midi);
+    const w = keyWidth * 0.9;
+
+    if (y > rollHeight + h) {
+      if (!note.hit && !note.missed) {
+        note.missed = true;
+        missedNotes++;
+        updateScore();
+      }
+      return;
+    }
+    if (y + h < 0) return;
+
+    ctx.fillStyle = note.hit ? 'limegreen' : note.missed ? 'red' : 'dodgerblue';
+    ctx.fillRect(x, y, w, h);
+  });
+
+  drawKeyboard();
+  animationId = requestAnimationFrame(draw);
+}
+
+function drawKeyboard() {
+  // White keys
+  let whiteIndex = 0;
+  for (let m = firstMidi; m <= lastMidi; m++) {
+    if (whiteKeys.includes(m % 12)) {
+      const x = whiteIndex * keyWidth;
+      ctx.fillStyle = pressedKeys.has(m) ? '#99ddff' : 'white';
+      ctx.fillRect(x, rollHeight, keyWidth, keyHeight);
+      ctx.strokeRect(x, rollHeight, keyWidth, keyHeight);
+      whiteIndex++;
+    }
+  }
+  // Black keys
+  whiteIndex = 0;
+  for (let m = firstMidi; m <= lastMidi; m++) {
+    const noteMod12 = m % 12;
+    if (whiteKeys.includes(noteMod12)) {
+      whiteIndex++;
+    } else {
+      const x = (whiteIndex - 1) * keyWidth + keyWidth * 0.65;
+      ctx.fillStyle = pressedKeys.has(m) ? '#66ccff' : 'black';
+      ctx.fillRect(x, rollHeight, keyWidth * 0.6, keyHeight * 0.6);
+    }
+  }
+}
+
+function updateScore() {
+  const attempted = hitNotes + missedNotes;
+  const percent = attempted ? Math.round((hitNotes / attempted) * 100) : 0;
+  scoreDisplay.textContent = `Score: ${percent}%`;
+}
+
+// Draw keyboard initially
+drawKeyboard();
+</script>
+</body>
+</html>
