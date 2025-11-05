@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Frontend → Docker Backend Test</title>
+</head>
+<body>
+
+  <!-- Page Header -->
+  <h2>Frontend → Docker Backend Test</h2>
+
+  <!-- Button to trigger API call -->
+  <button id="callBtn">Call Backend</button>
+
+  <!-- Paragraph to display backend response -->
+  <p id="output"></p>
+
+  <!-- JavaScript section -->
+  <script>
+    // When the button is clicked...
+    document.getElementById('callBtn').addEventListener('click', async () => {
+      try {
+        // Call the backend API (running inside Docker)
+        const res = await fetch('http://localhost:5000/hello');
+        
+        // Parse JSON response
+        const data = await res.json();
+
+        // Display message in the page
+        document.getElementById('output').textContent = data.message;
+
+      } catch (err) {
+        // Display any errors that occur (e.g. server not running)
+        document.getElementById('output').textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+
+</body>
+</html>
