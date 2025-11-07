@@ -1,0 +1,47 @@
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+    margin: 40px;
+    background: #f7f7f7;
+  }
+
+  h1 { color: #333; }
+
+  .controls { margin-top: 20px; }
+
+  /* File input styling */
+  input[type="file"] {
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: white;
+    cursor: pointer;
+    font-size: 1rem;
+    height: 38px; /* match button height */
+  }
+
+  /* Buttons and download link styling to match file input */
+  button, #download-link {
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: white;
+    cursor: pointer;
+    text-decoration: none;
+    color: black;
+    display: inline-block;
+    font-size: 1rem;
+    height: 38px; /* match file input */
+    line-height: 1.2;
+    margin: 5px 3px;
+  }
+
+  button:hover, #download-link:hover, input[type="file"]:hover {
+    background-color: #e0e0e0;
+  }
+
+  #status { margin-top: 15px; font-weight: bold; color: #444; }
+
+  #download-link { display: none; }
+</style>
