@@ -1,0 +1,5 @@
+gave up app because of package dep so run interactively
+
+docker build -t my-spleeter .
+docker run -it --rm -v /PATH_IN_HOST/data:/data my-spleeter
+spleeter separate -p spleeter:5stems -o ./ xxx.wav

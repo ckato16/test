@@ -1,12 +1,21 @@
-FROM python:3.9-slim
+FROM python:3.8-slim
 
-# Install dependencies
-RUN apt-get update && apt-get install -y ffmpeg && \
-    pip install spleeter && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Set working directory
+# Install system dependencies needed by Spleeter and h5py
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    git \
+    build-essential \
+    pkg-config \
+    libhdf5-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Spleeter
+RUN pip install --no-cache-dir spleeter==2.4.2
+
+# Create working directory
 WORKDIR /data
 
-# Default to bash
+# Start container with bash
 ENTRYPOINT ["/bin/bash"]
