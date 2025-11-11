@@ -1,28 +1,15 @@
 FROM python:3.10-slim
 
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
+COPY . /app
 
-# --- System dependencies for audio processing ---
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    libsndfile1 \
-    build-essential \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# --- Copy app code ---
-COPY . .
-
-# --- Install Python dependencies (CPU-only) ---
-RUN pip install --upgrade pip
 RUN pip install --no-cache-dir \
     flask \
-    basic-pitch \
-    tensorflow==2.12.0 \
-    librosa \
-    numpy \
-    scipy
+    basic-pitch==0.4.* \
+    soundfile librosa \
+    tensorflow==2.15.*
 
 EXPOSE 5000
-
 CMD ["python", "server.py"]

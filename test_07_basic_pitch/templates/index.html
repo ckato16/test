@@ -1,47 +1,36 @@
-<style>
-  body {
-    font-family: sans-serif;
-    text-align: center;
-    margin: 40px;
-    background: #f7f7f7;
-  }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Basic Pitch MIDI Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #333; }
+        label { display: block; margin-top: 20px; font-weight: bold; }
+        input[type="range"], input[type="number"] { width: 300px; }
+        .value { margin-left: 10px; font-weight: normal; }
+        button { margin-top: 20px; padding: 10px 20px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>Basic Pitch MIDI Generator</h1>
+    <form method="POST" enctype="multipart/form-data">
+        <label for="audio">Upload WAV/MP3 file:</label>
+        <input type="file" name="audio" id="audio" accept=".wav,.mp3" required>
 
-  h1 { color: #333; }
+        <label for="merge">Merge (high = stronger merge): <span id="merge_val" class="value">0.25</span></label>
+        <input type="range" id="merge" name="merge" min="0" max="1" step="0.01" value="0.25"
+               oninput="merge_val.innerText = this.value">
 
-  .controls { margin-top: 20px; }
+        <label for="thres">Thres (confidence, high = keep strong notes): <span id="thres_val" class="value">0.50</span></label>
+        <input type="range" id="thres" name="thres" min="0" max="1" step="0.01" value="0.50"
+               oninput="thres_val.innerText = this.value">
 
-  /* File input styling */
-  input[type="file"] {
-    padding: 8px 12px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-    background-color: white;
-    cursor: pointer;
-    font-size: 1rem;
-    height: 38px; /* match button height */
-  }
+        <label for="min">Min Note Length (seconds): <span id="min_val" class="value">0.05</span></label>
+        <input type="range" id="min" name="min" min="0.01" max="1.00" step="0.01" value="0.05"
+               oninput="min_val.innerText = this.value">
 
-  /* Buttons and download link styling to match file input */
-  button, #download-link {
-    padding: 8px 12px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-    background-color: white;
-    cursor: pointer;
-    text-decoration: none;
-    color: black;
-    display: inline-block;
-    font-size: 1rem;
-    height: 38px; /* match file input */
-    line-height: 1.2;
-    margin: 5px 3px;
-  }
-
-  button:hover, #download-link:hover, input[type="file"]:hover {
-    background-color: #e0e0e0;
-  }
-
-  #status { margin-top: 15px; font-weight: bold; color: #444; }
-
-  #download-link { display: none; }
-</style>
+        <button type="submit">Generate MIDI</button>
+    </form>
+</body>
+</html>
