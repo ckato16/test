@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch Trainer</title>
+<style>
+body { font-family: sans-serif; text-align: center; background: #f0f0f0; }
+h1 { margin-top: 20px; }
+button { margin: 5px; padding: 5px 10px; font-size: 16px; }
+#status { font-size: 20px; margin-top: 20px; }
+
+#keyboardContainer { display: flex; justify-content: center; margin-top: 30px; }
+.keyboard { position: relative; display: inline-block; user-select: none; }
+
+.white-key {
+  width: 40px; height: 200px; background: white; border: 1px solid #000;
+  display: inline-block; vertical-align: bottom; position: relative; cursor: pointer;
+  box-sizing: border-box; margin: 0;
+}
+.white-key.active { background: #d0f0d0; }
+.white-key.mic-detect { background: red; }
+
+.black-key {
+  width: 25px; height: 120px; background: black; color: white;
+  position: absolute; top: 0; z-index: 2; cursor: pointer;
+}
+.black-key.active { background: #444; }
+.black-key.mic-detect { background: red; }
+</style>
+</head>
+<body>
+
+<h1>Pitch Trainer 🎶 </h1>
+
+<button id="startBtn">Start/Restart Game</button>
+<button id="replayBtn" disabled>Replay Note</button>
+<p id="status">Press "Start/Restart Game" to begin!</p>
+
+<div id="keyboardContainer">
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<script>
+// ---------------- SETTINGS ----------------
+const octaves = [3,4,5];
+const semitones = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+let notes = [];
+octaves.forEach(o => semitones.forEach(s => notes.push(s+o)));
+
+const noteFrequencies = {};
+notes.forEach(n => {
+  const octave = parseInt(n.replace(/\D/g,''));
+  const semitoneOffsets = {'C':0,'C#':1,'D':2,'D#':3,'E':4,'F':5,'F#':6,'G':7,'G#':8,'A':9,'A#':10,'B':11};
+  noteFrequencies[n] = 16.35 * Math.pow(2, octave + semitoneOffsets[n.replace(/\d/,'')] / 12);
+});
+
+let currentNote = null;
+let round = 0;
+let score = 0;
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const testRange = {min:'C3', max:'C5'};
+const totalRounds = 10;
+let acceptingPitch = false;
+
+// ---------------- AUDIO ----------------
+function playNote(note, duration=0.5){
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.frequency.value = noteFrequencies[note];
+  gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
+  osc.start(); 
+  osc.stop(audioCtx.currentTime+duration);
+}
+
+// ---------------- KEYBOARD ----------------
+const keyboardDiv = document.getElementById('keyboard');
+let keyElements = {};
+
+function createKeyboard(){
+  keyboardDiv.innerHTML='';
+  keyElements = {};
+  const displayNotes = notes.slice(
+    notes.indexOf(testRange.min),
+    notes.indexOf(testRange.max)+1
+  );
+
+  // create white keys
+  let whiteKeys = displayNotes.filter(n=>!n.includes('#'));
+  whiteKeys.forEach(n=>{
+    const key = document.createElement('div');
+    key.className='white-key';
+    key.dataset.note=n;
+    key.textContent=n;
+    key.addEventListener('click',()=>{ 
+      if(!acceptingPitch) return;
+      playNote(n); 
+      handleUserGuess(n); 
+    });
+    keyboardDiv.appendChild(key);
+    keyElements[n]=key;
+  });
+
+  // create black keys
+  displayNotes.forEach((n,i)=>{
+    if(n.includes('#')){
+      const prevWhite = displayNotes.slice(0,i).reverse().find(nn=>!nn.includes('#'));
+      if(prevWhite){
+        const key = document.createElement('div');
+        key.className='black-key';
+        key.dataset.note=n;
+        const left = keyElements[prevWhite].offsetLeft + 30; 
+        key.style.left = left+'px';
+        key.addEventListener('click',()=>{ 
+          if(!acceptingPitch) return;
+          playNote(n); 
+          handleUserGuess(n); 
+        });
+        keyboardDiv.appendChild(key);
+        keyElements[n]=key;
+      }
+    }
+  });
+}
+createKeyboard();
+
+// ---------------- GAME LOGIC ----------------
+const startBtn = document.getElementById('startBtn');
+const replayBtn = document.getElementById('replayBtn');
+
+startBtn.addEventListener('click', startGame);
+replayBtn.addEventListener('click', replayNote);
+
+function startGame(){
+  round=0; score=0; currentNote=null;
+  document.getElementById('status').textContent="Listen and match the notes!";
+  replayBtn.disabled = true;
+  nextRound();
+}
+
+function replayNote(){
+  if(currentNote){
+    acceptingPitch = false;
+    document.getElementById('status').textContent=`Round ${round}: Replay...`;
+    playNote(currentNote,0.5);
+    setTimeout(()=>{
+      acceptingPitch = true;
+      document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
+    }, 500);
+  }
+}
+
+function nextRound(){
+  const rangeNotes = notes.slice(notes.indexOf(testRange.min), notes.indexOf(testRange.max)+1);
+  if(round>=totalRounds){
+    document.getElementById('status').textContent=`✅ Game over! Score: ${score}/${totalRounds}`;
+    acceptingPitch = false;
+    currentNote = null;
+    replayBtn.disabled = true;
+    return;
+  }
+  round++;
+  currentNote = rangeNotes[Math.floor(Math.random()*rangeNotes.length)];
+  document.getElementById('status').textContent=`Round ${round}: Listen...`;
+  acceptingPitch = false; // disable pitch indicator during playback
+  replayBtn.disabled = true;
+
+  setTimeout(()=>{
+    playNote(currentNote,0.5);
+    setTimeout(()=>{
+      acceptingPitch = true; // enable pitch indicator after note
+      document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
+      replayBtn.disabled = false;
+    }, 500);
+  }, 200);
+}
+
+function handleUserGuess(note){
+  if(!acceptingPitch) return;
+  flashKey(note);
+  if(note===currentNote){score++; document.getElementById('status').textContent=`✅ Correct! (${score}/${round})`;}
+  else document.getElementById('status').textContent=`❌ Wrong! It was ${currentNote}`;
+  acceptingPitch = false;
+  currentNote=null;
+  replayBtn.disabled = true;
+  setTimeout(nextRound,1200);
+}
+
+function flashKey(note){
+  const key = keyElements[note];
+  if(key){ key.classList.add('active'); setTimeout(()=>key.classList.remove('active'),300); }
+}
+
+// ---------------- MICROPHONE PITCH DETECTION ----------------
+let analyser, dataArray, source;
+let pitchBuffer = [];
+const HOLD_FRAMES = 30; // ~0.5 sec (assuming 60fps)
+
+navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+  source = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  source.connect(analyser);
+  dataArray = new Float32Array(analyser.fftSize);
+  detectPitch();
+});
+
+function autoCorrelate(buffer, sampleRate){
+  let SIZE = buffer.length;
+  let rms = 0;
+  for(let i=0;i<SIZE;i++) rms += buffer[i]*buffer[i];
+  rms = Math.sqrt(rms/SIZE);
+  if(rms<0.01) return -1;
+  let r=[];
+  for(let i=0;i<SIZE;i++) r[i]=0;
+  for(let lag=0;lag<SIZE;lag++){
+    for(let i=0;i<SIZE-lag;i++) r[lag]+=buffer[i]*buffer[i+lag];
+  }
+  let d=0; while(r[d]>r[d+1]) d++;
+  let maxval=-1, maxpos=-1;
+  for(let i=d;i<SIZE;i++){
+    if(r[i]>maxval){ maxval=r[i]; maxpos=i; }
+  }
+  let T0 = maxpos;
+  return sampleRate/T0;
+}
+
+function detectPitch(){
+  analyser.getFloatTimeDomainData(dataArray);
+  const pitch = autoCorrelate(dataArray,audioCtx.sampleRate);
+
+  Object.values(keyElements).forEach(k=>k.classList.remove('mic-detect'));
+
+  if(pitch>0 && acceptingPitch){
+    let closestNote=null; let minDiff=Infinity;
+    for(let n in noteFrequencies){
+      if(notes.indexOf(n) >= notes.indexOf(testRange.min) &&
+         notes.indexOf(n) <= notes.indexOf(testRange.max)){
+        const diff = Math.abs(noteFrequencies[n]-pitch);
+        if(diff<minDiff){ minDiff=diff; closestNote=n; }
+      }
+    }
+
+    if(closestNote){
+      keyElements[closestNote].classList.add('mic-detect');
+      pitchBuffer.push(closestNote);
+      if(pitchBuffer.length > HOLD_FRAMES) pitchBuffer.shift(); 
+      const lastNote = pitchBuffer[pitchBuffer.length-1];
+      const allSame = pitchBuffer.every(n => n===lastNote);
+      if(allSame && pitchBuffer.length>=HOLD_FRAMES){
+        handleUserGuess(lastNote);
+        pitchBuffer = [];
+      }
+    } else pitchBuffer = [];
+  } else pitchBuffer = [];
+
+  requestAnimationFrame(detectPitch);
+}
+</script>
+
+</body>
+</html>
