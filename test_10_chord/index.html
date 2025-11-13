@@ -13,28 +13,62 @@ body {
 h1 { margin-top: 20px; }
 button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 #status { font-size: 18px; margin-top: 15px; }
-#keyboardContainer { display: flex; justify-content: center; margin-top: 20px; overflow-x: auto; padding: 10px; }
-.keyboard { position: relative; display: inline-block; user-select: none; height: 200px; }
+
+#keyboardContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  overflow-x: auto;       /* horizontal scroll for narrow screens */
+  padding: 10px;
+  max-width: 600px;       /* max width for wide screens */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.keyboard {
+  display: flex;
+  position: relative;
+  flex-shrink: 0;         /* prevent shrinking when container scrolls */
+  height: 200px;
+  width: 100%;
+  max-width: 600px;
+}
+
 .white-key {
-  width: 8vw; max-width: 40px; height: 180px; background: white; border: 1px solid #000; display: inline-block;
-  vertical-align: bottom; position: relative; cursor: pointer; box-sizing: border-box; margin: 0; text-align: center;
-  font-size: 12px; line-height: 180px;
+  flex: 1 0 auto;         /* flexible width, does not shrink below min */
+  min-width: 40px;        /* minimum key width for usability */
+  height: 180px;
+  background: white;
+  border: 1px solid #000;
+  position: relative;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 180px;
+  font-size: 12px;
 }
 .white-key.active { background: #d0f0d0; }
 .white-key.mic-detect { background: red; }
+
 .black-key {
-  width: 5vw; max-width: 25px; height: 120px; background: black; position: absolute; top: 0; z-index: 2;
-  cursor: pointer; border-radius: 0 0 3px 3px;
+  position: absolute;
+  top: 0;
+  height: 120px;
+  background: black;
+  z-index: 2;
+  cursor: pointer;
+  border-radius: 0 0 3px 3px;
 }
 .black-key.active { background: #444; }
 .black-key.mic-detect { background: red; }
+
 #controls { margin-top: 20px; }
 #setups {
-  display: inline-flex;       /* shrink-wrap the content */
-  flex-direction: column;     /* stack vertically */
-  align-items: flex-start;    /* left-align the checkboxes */
-  gap: 5px;                   /* spacing between checkboxes */
-  margin: 20px auto;          /* center horizontally on page */
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 20px auto;
 }
 </style>
 </head>
@@ -141,8 +175,10 @@ function createKeyboard(){
         const key = document.createElement('div');
         key.className='black-key';
         key.dataset.note=n;
-        const left = keyElements[prevWhite].offsetLeft + keyElements[prevWhite].offsetWidth * 0.7;
-        key.style.left = left+'px';
+        const whiteKey = keyElements[prevWhite];
+        key.style.left = (whiteKey.offsetLeft + whiteKey.offsetWidth*0.65) + 'px';
+        key.style.width = (whiteKey.offsetWidth*0.65) + 'px'; // scale black key width
+        key.style.height = (whiteKey.offsetHeight*0.65) + 'px'; // scale black key height
         key.addEventListener('click',()=>{ 
           playNote(n);
           if(acceptingPitch && !selectedNotes.includes(n)){
@@ -339,6 +375,24 @@ function detectPitch(){
   } else pitchBuffer=[];
   requestAnimationFrame(detectPitch);
 }
+
+// ---------------- RESIZE BLACK KEYS ON WINDOW RESIZE ----------------
+window.addEventListener('resize', ()=> {
+  Object.values(keyElements).forEach(k=>{
+    if(k.classList.contains('black-key')){
+      const prevWhite = notes.slice(notes.indexOf(minNote), notes.indexOf(maxNote)+1)
+        .slice(0, notes.indexOf(k.dataset.note))
+        .reverse()
+        .find(n=>!n.includes('#'));
+      if(prevWhite){
+        const whiteKey = keyElements[prevWhite];
+        k.style.left = (whiteKey.offsetLeft + whiteKey.offsetWidth*0.65)+'px';
+        k.style.width = (whiteKey.offsetWidth*0.65)+'px';
+        k.style.height = (whiteKey.offsetHeight*0.65)+'px';
+      }
+    }
+  });
+});
 </script>
 
 </body>
