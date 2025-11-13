@@ -17,11 +17,12 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 /* --- Responsive scrollable keyboard container --- */
 #keyboardContainer {
   display: block;
-  overflow-x: auto;         /* allows horizontal scroll on small screens */
+  overflow-x: auto;          /* horizontal scroll on small screens */
   overflow-y: hidden;
   margin: 30px auto 0;
   padding: 10px;
-  max-width: 100vw;         /* limit to viewport width */
+  max-width: 600px;         /* max width for very wide screens */
+  width: 90vw;               /* scale with viewport width up to max-width */
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch; /* smooth mobile scroll */
   border: 2px solid #ccc;
@@ -30,40 +31,39 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 
 /* --- Keyboard and keys --- */
 .keyboard {
-  position: relative;
-  display: inline-block;
-  user-select: none;
+  display: flex;
   height: 220px;
-  white-space: nowrap;      /* keep keys in one line */
+  position: relative;
 }
 
 .white-key {
-  width: 60px;              /* fixed size for scrolling layout */
+  flex: 1 0 auto;      /* scale with container */
+  min-width: 30px;      /* optional */
   height: 200px;
-  background: white;
-  border: 1px solid #000;
-  display: inline-block;
-  vertical-align: bottom;
   position: relative;
+  background: white;
+  border: 1px solid black;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 6px;
+  font-size: 12px;
   cursor: pointer;
   box-sizing: border-box;
-  margin: 0;
-  text-align: center;
-  font-size: 12px;
-  line-height: 200px;
 }
+
 .white-key.active { background: #d0f0d0; }
 .white-key.mic-detect { background: red; }
 
 .black-key {
-  width: 40px;
-  height: 120px;
-  background: black;
   position: absolute;
   top: 0;
-  z-index: 2;
-  cursor: pointer;
+  height: 60%;          /* relative to white key */
+  background: black;
   border-radius: 0 0 3px 3px;
+  cursor: pointer;
+  z-index: 2;
 }
 .black-key.active { background: #444; }
 .black-key.mic-detect { background: red; }
@@ -99,7 +99,7 @@ let currentNote = null;
 let round = 0;
 let score = 0;
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-const testRange = {min:'C3', max:'C5'};
+const testRange = {min:'C3', max:'B4'};
 const totalRounds = 10;
 let acceptingPitch = false;
 
@@ -118,52 +118,97 @@ function playNote(note, duration=0.5){
 const keyboardDiv = document.getElementById('keyboard');
 let keyElements = {};
 
-function createKeyboard(){
-  keyboardDiv.innerHTML='';
+function createKeyboard() {
+  keyboardDiv.innerHTML = '';
   keyElements = {};
+
   const displayNotes = notes.slice(
     notes.indexOf(testRange.min),
-    notes.indexOf(testRange.max)+1
+    notes.indexOf(testRange.max) + 1
   );
 
-  // create white keys
-  let whiteKeys = displayNotes.filter(n=>!n.includes('#'));
-  whiteKeys.forEach(n=>{
+  // --- create white keys ---
+  const whiteKeys = displayNotes.filter(n => !n.includes('#'));
+  whiteKeys.forEach(n => {
     const key = document.createElement('div');
-    key.className='white-key';
-    key.dataset.note=n;
-    key.textContent=n;
-    key.addEventListener('click',()=>{ 
-      if(!acceptingPitch) return;
-      playNote(n); 
-      handleUserGuess(n); 
+    key.className = 'white-key';
+    key.dataset.note = n;
+    key.textContent = n;
+    key.addEventListener('click', () => {
+      if (!acceptingPitch) return;
+      playNote(n);
+      handleUserGuess(n);
     });
     keyboardDiv.appendChild(key);
-    keyElements[n]=key;
+    keyElements[n] = key;
   });
 
-  // create black keys
-  displayNotes.forEach((n,i)=>{
-    if(n.includes('#')){
-      const prevWhite = displayNotes.slice(0,i).reverse().find(nn=>!nn.includes('#'));
-      if(prevWhite){
+  // --- create black keys ---
+  displayNotes.forEach((n, i) => {
+    if (n.includes('#')) {
+      const prevWhite = displayNotes.slice(0, i).reverse().find(nn => !nn.includes('#'));
+      if (prevWhite) {
         const key = document.createElement('div');
-        key.className='black-key';
-        key.dataset.note=n;
-        const left = keyElements[prevWhite].offsetLeft + keyElements[prevWhite].offsetWidth * 0.7;
-        key.style.left = left+'px';
-        key.addEventListener('click',()=>{ 
-          if(!acceptingPitch) return;
-          playNote(n); 
-          handleUserGuess(n); 
+        key.className = 'black-key';
+        key.dataset.note = n;
+        key.addEventListener('click', () => {
+          if (!acceptingPitch) return;
+          playNote(n);
+          handleUserGuess(n);
         });
         keyboardDiv.appendChild(key);
-        keyElements[n]=key;
+        keyElements[n] = key;
+      }
+    }
+  });
+
+  // --- position black keys initially ---
+  positionBlackKeys();
+}
+
+// --- function to recalc black key width and left position ---
+function positionBlackKeys() {
+  Object.values(keyElements).forEach(k => {
+    if (k.classList.contains('black-key')) {
+      const note = k.dataset.note;
+      const i = notes.indexOf(note);
+      const prevWhite = notes.slice(0, i).reverse().find(nn => !nn.includes('#'));
+      if (prevWhite) {
+        const whiteKey = keyElements[prevWhite];
+        const whiteWidth = whiteKey.offsetWidth;
+
+        k.style.width = (whiteWidth * 0.6) + 'px';                 // scale black key
+        k.style.left = (whiteKey.offsetLeft + whiteWidth * 0.7) + 'px'; // position black key
       }
     }
   });
 }
+
+// --- call on resize to keep keys aligned ---
+window.addEventListener('resize', () => {
+  positionBlackKeys();
+});
+
+// --- initial creation ---
 createKeyboard();
+
+function positionBlackKeys() {
+  Object.values(keyElements).forEach(k => {
+    if (k.classList.contains('black-key')) {
+      const note = k.dataset.note;
+      const i = notes.indexOf(note);
+      const prevWhite = notes.slice(0, i).reverse().find(nn => !nn.includes('#'));
+      if (prevWhite) {
+        const whiteKey = keyElements[prevWhite];
+        const whiteWidth = whiteKey.offsetWidth;
+        k.style.width = (whiteWidth * 0.6) + 'px';          // scale width
+        k.style.left = (whiteKey.offsetLeft + whiteWidth * 0.7) + 'px';  // reposition
+      }
+    }
+  });
+}
+
+positionBlackKeys();
 
 // ---------------- GAME LOGIC ----------------
 const startBtn = document.getElementById('startBtn');
