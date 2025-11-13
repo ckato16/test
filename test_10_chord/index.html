@@ -29,26 +29,26 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 .black-key.active { background: #444; }
 .black-key.mic-detect { background: red; }
 #controls { margin-top: 20px; }
-#chordSelection { margin-top: 10px; }
+#setups { margin-top: 10px; }
 </style>
 </head>
 <body>
 
 <h1>Chord Trainer 🎶</h1>
 
-<div id="controls">
-  <button id="startBtn">Start/Restart Game</button>
-  <button id="replayBtn" disabled>Replay Chord</button>
-  <button id="nextBtn" disabled>Next Chord</button>
-  <button id="submitBtn" disabled>Submit Answer</button>
-  <button id="resetSelectionBtn" disabled>Reset Selected Notes</button>
+<div id="setups">
   <label><input type="checkbox" id="arpeggioMode"> Arpeggio Mode</label>
+  <label><input type="checkbox" class="category" value="power" checked> Power (2 notes)</label>
+  <label><input type="checkbox" class="category" value="major"> Major (3 notes)</label>
+  <label><input type="checkbox" class="category" value="minor"> Minor (3 notes)</label>
 </div>
 
-<div id="chordSelection">
-  <label><input type="checkbox" class="category" value="power" checked> Power (2 notes)</label>
-  <label><input type="checkbox" class="category" value="major" checked> Major (3 notes)</label>
-  <label><input type="checkbox" class="category" value="minor" checked> Minor (3 notes)</label>
+<div id="controls">
+  <button id="startBtn">Start/Restart</button>
+  <button id="replayBtn" disabled>Replay Chord</button>
+  <button id="nextBtn" disabled>Next Chord</button>
+  <button id="resetSelectionBtn" disabled>Reset Selected Notes</button>
+  <button id="submitBtn" disabled>Submit Answer</button>
 </div>
 
 <p id="status">Press "Start/Restart Game" to begin!</p>
