@@ -5,25 +5,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pitch Trainer</title>
 <style>
-body { font-family: sans-serif; text-align: center; background: #f0f0f0; }
+body {
+  font-family: sans-serif;
+  text-align: center;
+  background: #f0f0f0;
+}
 h1 { margin-top: 20px; }
 button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 #status { font-size: 20px; margin-top: 20px; }
 
-#keyboardContainer { display: flex; justify-content: center; margin-top: 30px; }
-.keyboard { position: relative; display: inline-block; user-select: none; }
+#keyboardContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+  overflow-x: auto;
+  padding: 10px;
+}
+
+.keyboard {
+  position: relative;
+  display: inline-block;
+  user-select: none;
+  height: 220px;
+}
 
 .white-key {
-  width: 40px; height: 200px; background: white; border: 1px solid #000;
-  display: inline-block; vertical-align: bottom; position: relative; cursor: pointer;
-  box-sizing: border-box; margin: 0;
+  width: 8vw;
+  max-width: 40px;
+  height: 200px;
+  background: white;
+  border: 1px solid #000;
+  display: inline-block;
+  vertical-align: bottom;
+  position: relative;
+  cursor: pointer;
+  box-sizing: border-box;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 200px;
 }
 .white-key.active { background: #d0f0d0; }
 .white-key.mic-detect { background: red; }
 
 .black-key {
-  width: 25px; height: 120px; background: black; color: white;
-  position: absolute; top: 0; z-index: 2; cursor: pointer;
+  width: 5vw;
+  max-width: 25px;
+  height: 120px;
+  background: black;
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  cursor: pointer;
+  border-radius: 0 0 3px 3px;
 }
 .black-key.active { background: #444; }
 .black-key.mic-detect { background: red; }
@@ -31,10 +65,10 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 </head>
 <body>
 
-<h1>Pitch Trainer 🎶 </h1>
+<h1>Pitch Trainer 🎶</h1>
 
 <button id="startBtn">Start/Restart Game</button>
-<button id="replayBtn" disabled>Replay Note</button>
+<button id="replayBtn" disabled>Play Note</button>
 <p id="status">Press "Start/Restart Game" to begin!</p>
 
 <div id="keyboardContainer">
@@ -70,7 +104,7 @@ function playNote(note, duration=0.5){
   osc.connect(gain).connect(audioCtx.destination);
   osc.frequency.value = noteFrequencies[note];
   gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
-  osc.start(); 
+  osc.start();
   osc.stop(audioCtx.currentTime+duration);
 }
 
@@ -110,7 +144,7 @@ function createKeyboard(){
         const key = document.createElement('div');
         key.className='black-key';
         key.dataset.note=n;
-        const left = keyElements[prevWhite].offsetLeft + 30; 
+        const left = keyElements[prevWhite].offsetLeft + keyElements[prevWhite].offsetWidth * 0.7;
         key.style.left = left+'px';
         key.addEventListener('click',()=>{ 
           if(!acceptingPitch) return;
@@ -130,24 +164,30 @@ const startBtn = document.getElementById('startBtn');
 const replayBtn = document.getElementById('replayBtn');
 
 startBtn.addEventListener('click', startGame);
-replayBtn.addEventListener('click', replayNote);
+replayBtn.addEventListener('click', playOrReplay);
 
 function startGame(){
   round=0; score=0; currentNote=null;
   document.getElementById('status').textContent="Listen and match the notes!";
-  replayBtn.disabled = true;
+  replayBtn.disabled = false;
+  replayBtn.textContent = "Play Note";
   nextRound();
 }
 
-function replayNote(){
+function playOrReplay(){
   if(currentNote){
+    // Replay current note
     acceptingPitch = false;
     document.getElementById('status').textContent=`Round ${round}: Replay...`;
     playNote(currentNote,0.5);
     setTimeout(()=>{
       acceptingPitch = true;
       document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
+      replayBtn.textContent = "Replay Note";
     }, 500);
+  } else {
+    // Start next round
+    nextRound();
   }
 }
 
@@ -163,15 +203,16 @@ function nextRound(){
   round++;
   currentNote = rangeNotes[Math.floor(Math.random()*rangeNotes.length)];
   document.getElementById('status').textContent=`Round ${round}: Listen...`;
-  acceptingPitch = false; // disable pitch indicator during playback
+  acceptingPitch = false;
   replayBtn.disabled = true;
 
   setTimeout(()=>{
     playNote(currentNote,0.5);
     setTimeout(()=>{
-      acceptingPitch = true; // enable pitch indicator after note
+      acceptingPitch = true;
       document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
       replayBtn.disabled = false;
+      replayBtn.textContent = "Replay Note";
     }, 500);
   }, 200);
 }
@@ -179,12 +220,17 @@ function nextRound(){
 function handleUserGuess(note){
   if(!acceptingPitch) return;
   flashKey(note);
-  if(note===currentNote){score++; document.getElementById('status').textContent=`✅ Correct! (${score}/${round})`;}
-  else document.getElementById('status').textContent=`❌ Wrong! It was ${currentNote}`;
+  if(note===currentNote){
+    score++;
+    document.getElementById('status').textContent=`✅ Correct! It was ${currentNote}! (${score}/${round})`;
+  } else {
+    document.getElementById('status').textContent=`❌ Wrong! It was ${currentNote} not ${note}! (${score}/${round})`;
+  }
   acceptingPitch = false;
   currentNote=null;
-  replayBtn.disabled = true;
-  setTimeout(nextRound,1200);
+  // Wait for user to click "Play Next"
+  replayBtn.textContent = "Play Next";
+  replayBtn.disabled = false;
 }
 
 function flashKey(note){
