@@ -14,24 +14,31 @@ h1 { margin-top: 20px; }
 button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 #status { font-size: 20px; margin-top: 20px; }
 
+/* --- Responsive scrollable keyboard container --- */
 #keyboardContainer {
-  display: flex;
-  justify-content: center;
-  margin-top: 30px;
-  overflow-x: auto;
+  display: block;
+  overflow-x: auto;         /* allows horizontal scroll on small screens */
+  overflow-y: hidden;
+  margin: 30px auto 0;
   padding: 10px;
+  max-width: 100vw;         /* limit to viewport width */
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch; /* smooth mobile scroll */
+  border: 2px solid #ccc;
+  background: #fafafa;
 }
 
+/* --- Keyboard and keys --- */
 .keyboard {
   position: relative;
   display: inline-block;
   user-select: none;
   height: 220px;
+  white-space: nowrap;      /* keep keys in one line */
 }
 
 .white-key {
-  width: 8vw;
-  max-width: 40px;
+  width: 60px;              /* fixed size for scrolling layout */
   height: 200px;
   background: white;
   border: 1px solid #000;
@@ -49,8 +56,7 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 .white-key.mic-detect { background: red; }
 
 .black-key {
-  width: 5vw;
-  max-width: 25px;
+  width: 40px;
   height: 120px;
   background: black;
   position: absolute;
@@ -67,9 +73,9 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 
 <h1>Pitch Trainer 🎶</h1>
 
-<button id="startBtn">Start/Restart Game</button>
+<button id="startBtn">Start/Restart</button>
 <button id="replayBtn" disabled>Play Note</button>
-<p id="status">Press "Start/Restart Game" to begin!</p>
+<p id="status">Press "Start/Restart" to begin!</p>
 
 <div id="keyboardContainer">
   <div class="keyboard" id="keyboard"></div>
@@ -228,7 +234,6 @@ function handleUserGuess(note){
   }
   acceptingPitch = false;
   currentNote=null;
-  // Wait for user to click "Play Next"
   replayBtn.textContent = "Play Next";
   replayBtn.disabled = false;
 }
