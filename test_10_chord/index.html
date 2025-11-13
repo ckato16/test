@@ -29,7 +29,13 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 .black-key.active { background: #444; }
 .black-key.mic-detect { background: red; }
 #controls { margin-top: 20px; }
-#setups { margin-top: 10px; }
+#setups {
+  display: inline-flex;       /* shrink-wrap the content */
+  flex-direction: column;     /* stack vertically */
+  align-items: flex-start;    /* left-align the checkboxes */
+  gap: 5px;                   /* spacing between checkboxes */
+  margin: 20px auto;          /* center horizontally on page */
+}
 </style>
 </head>
 <body>
@@ -41,6 +47,13 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
   <label><input type="checkbox" class="category" value="power" checked> Power (2 notes)</label>
   <label><input type="checkbox" class="category" value="major"> Major (3 notes)</label>
   <label><input type="checkbox" class="category" value="minor"> Minor (3 notes)</label>
+  <label><input type="checkbox" class="category" value="sus2"> Sus2 (3 notes)</label>
+  <label><input type="checkbox" class="category" value="sus4"> Sus4 (3 notes)</label>
+  <label><input type="checkbox" class="category" value="aug"> Augmented (3 notes)</label>
+  <label><input type="checkbox" class="category" value="dim"> Diminished (3 notes)</label>
+  <label><input type="checkbox" class="category" value="maj7"> Major 7th (4 notes)</label>
+  <label><input type="checkbox" class="category" value="min7"> Minor 7th (4 notes)</label>
+  <label><input type="checkbox" class="category" value="add9"> Add9 (4 notes)</label>
 </div>
 
 <div id="controls">
@@ -154,7 +167,14 @@ function updateSelectedNotes(){
 const chordPatterns = {
   power: [[0,7]],
   major: [[0,4,7]],
-  minor: [[0,3,7]]
+  minor: [[0,3,7]],
+  sus2: [[0,2,7]],
+  sus4: [[0,5,7]],
+  aug: [[0,4,8]],
+  dim: [[0,3,6]],
+  maj7: [[0,4,7,11]],
+  min7: [[0,3,7,10]],
+  add9: [[0,4,7,14]]
 };
 
 function isChordInRange(chordNotes){
@@ -246,9 +266,9 @@ function submitAnswer(){
   let message;
   if(sortedCorrect.join()===sortedUser.join()){
     score++;
-    message=`✅ Correct! ${currentChord.category} chord (${currentChord.root}): ${correct} (${score}/${round})`;
+    message=`✅ Correct! ${currentChord.root} ${currentChord.category}: ${correct} (${score}/${round})`;
   } else {
-    message=`❌ Wrong! Correct ${currentChord.category} chord (${currentChord.root}): ${correct}. Your answer: ${user} (${score}/${round})`;
+    message=`❌ Wrong! Correct ${currentChord.root} ${currentChord.category}: ${correct}. Your answer: ${user} (${score}/${round})`;
   }
   document.getElementById('status').textContent=message;
   acceptingPitch=false;
