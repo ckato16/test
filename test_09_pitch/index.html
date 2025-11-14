@@ -14,31 +14,27 @@ h1 { margin-top: 20px; }
 button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 #status { font-size: 20px; margin-top: 20px; }
 
-/* --- Responsive scrollable keyboard container --- */
 #keyboardContainer {
   display: block;
-  overflow-x: auto;          /* horizontal scroll on small screens */
+  overflow-x: auto;
   overflow-y: hidden;
   margin: 30px auto 0;
   padding: 10px;
-  max-width: 600px;         /* max width for very wide screens */
-  width: 90vw;               /* scale with viewport width up to max-width */
+  max-width: 600px;
+  width: 90vw;
   box-sizing: border-box;
-  -webkit-overflow-scrolling: touch; /* smooth mobile scroll */
+  -webkit-overflow-scrolling: touch;
   border: 2px solid #ccc;
   background: #fafafa;
 }
-
-/* --- Keyboard and keys --- */
 .keyboard {
   display: flex;
   height: 220px;
   position: relative;
 }
-
 .white-key {
-  flex: 1 0 auto;      /* scale with container */
-  min-width: 30px;      /* optional */
+  flex: 1 0 auto;
+  min-width: 30px;
   height: 200px;
   position: relative;
   background: white;
@@ -52,14 +48,12 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
   cursor: pointer;
   box-sizing: border-box;
 }
-
 .white-key.active { background: #d0f0d0; }
 .white-key.mic-detect { background: red; }
-
 .black-key {
   position: absolute;
   top: 0;
-  height: 60%;          /* relative to white key */
+  height: 60%;
   background: black;
   border-radius: 0 0 3px 3px;
   cursor: pointer;
@@ -162,11 +156,9 @@ function createKeyboard() {
     }
   });
 
-  // --- position black keys initially ---
   positionBlackKeys();
 }
 
-// --- function to recalc black key width and left position ---
 function positionBlackKeys() {
   Object.values(keyElements).forEach(k => {
     if (k.classList.contains('black-key')) {
@@ -184,12 +176,10 @@ function positionBlackKeys() {
   });
 }
 
-// --- call on resize to keep keys aligned ---
 window.addEventListener('resize', () => {
   positionBlackKeys();
 });
 
-// --- initial creation ---
 createKeyboard();
 
 function positionBlackKeys() {
