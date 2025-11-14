@@ -68,7 +68,7 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 <h1>Pitch Trainer 🎶</h1>
 
 <button id="startBtn">Start</button>
-<button id="replayBtn" disabled>Replay</button>
+<button id="replayBtn">Replay</button>
 <p id="status">Press "Start"!</p>
 
 <div id="keyboardContainer">
@@ -202,49 +202,33 @@ const startBtn = document.getElementById('startBtn');
 const replayBtn = document.getElementById('replayBtn');
 
 startBtn.addEventListener('click', startGame);
-replayBtn.addEventListener('click', playOrReplay);
+replayBtn.addEventListener('click', replayNote);
+replayBtn.disabled = true;
 
 function startGame(){
   currentNote=null;
-  document.getElementById('status').textContent="Listen and match the notes!";
-  replayBtn.disabled = false;
-  replayBtn.textContent = "Replay";
-  nextRound();
-}
-
-function playOrReplay(){
-  if(currentNote){
-    // Replay current note
-    acceptingPitch = false;
-    document.getElementById('status').textContent=`Replay...`;
-    playNote(currentNote,0.5);
-    setTimeout(()=>{
-      acceptingPitch = true;
-      document.getElementById('status').textContent=`Click or sing the note!`;
-      replayBtn.textContent = "Replay";
-    }, 500);
-  } else {
-    // Start next round
-    nextRound();
-  }
-}
-
-function nextRound(){
   const rangeNotes = notes.slice(notes.indexOf(testRange.min), notes.indexOf(testRange.max)+1);
   currentNote = rangeNotes[Math.floor(Math.random()*rangeNotes.length)];
   document.getElementById('status').textContent=`Listen...`;
   acceptingPitch = false;
-  replayBtn.disabled = true;
-
   setTimeout(()=>{
     playNote(currentNote,0.5);
     setTimeout(()=>{
       acceptingPitch = true;
       document.getElementById('status').textContent=`Click or sing the note!`;
       replayBtn.disabled = false;
-      replayBtn.textContent = "Replay";
     }, 500);
   }, 200);
+}
+
+function replayNote(){
+    document.getElementById('status').textContent=`Listen...`;
+    acceptingPitch = false;
+    playNote(currentNote,0.5);
+    setTimeout(()=>{
+      document.getElementById('status').textContent=`Click or sing the note!`;
+      acceptingPitch = true;
+    }, 500);
 }
 
 function handleUserGuess(note){
@@ -255,9 +239,9 @@ function handleUserGuess(note){
   } else {
     document.getElementById('status').textContent=`❌ Wrong! It was ${currentNote} not ${note}!`;
   }
-  acceptingPitch = false;
-  currentNote=null;
-  replayBtn.disabled = true;
+  //acceptingPitch = false;
+  //currentNote=null;
+  //replayBtn.disabled = true;
 }
 
 function flashKey(note){
