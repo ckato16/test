@@ -15,22 +15,22 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 #status { font-size: 20px; margin-top: 20px; }
 
 #keyboardContainer {
-  display: block;
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
   overflow-x: auto;
-  overflow-y: hidden;
-  margin: 30px auto 0;
   padding: 10px;
   max-width: 600px;
-  width: 90vw;
-  box-sizing: border-box;
-  -webkit-overflow-scrolling: touch;
-  border: 2px solid #ccc;
-  background: #fafafa;
+  margin-left: auto;
+  margin-right: auto;
 }
 .keyboard {
   display: flex;
-  height: 220px;
   position: relative;
+  flex-shrink: 0;
+  height: 200px;
+  width: 100%;
+  max-width: 600px;
 }
 .white-key {
   flex: 1 0 auto;
@@ -67,9 +67,9 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 
 <h1>Pitch Trainer 🎶</h1>
 
-<button id="startBtn">Start/Restart</button>
-<button id="replayBtn" disabled>Play Note</button>
-<p id="status">Press "Start/Restart" to begin!</p>
+<button id="startBtn">Start</button>
+<button id="replayBtn" disabled>Replay</button>
+<p id="status">Press "Start"!</p>
 
 <div id="keyboardContainer">
   <div class="keyboard" id="keyboard"></div>
@@ -211,7 +211,7 @@ function startGame(){
   round=0; score=0; currentNote=null;
   document.getElementById('status').textContent="Listen and match the notes!";
   replayBtn.disabled = false;
-  replayBtn.textContent = "Play Note";
+  replayBtn.textContent = "Replay";
   nextRound();
 }
 
@@ -224,7 +224,7 @@ function playOrReplay(){
     setTimeout(()=>{
       acceptingPitch = true;
       document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
-      replayBtn.textContent = "Replay Note";
+      replayBtn.textContent = "Replay";
     }, 500);
   } else {
     // Start next round
@@ -253,7 +253,7 @@ function nextRound(){
       acceptingPitch = true;
       document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
       replayBtn.disabled = false;
-      replayBtn.textContent = "Replay Note";
+      replayBtn.textContent = "Replay";
     }, 500);
   }, 200);
 }
@@ -269,7 +269,7 @@ function handleUserGuess(note){
   }
   acceptingPitch = false;
   currentNote=null;
-  replayBtn.textContent = "Play Next";
+  replayBtn.textContent = "Next";
   replayBtn.disabled = false;
 }
 
