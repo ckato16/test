@@ -18,9 +18,9 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
   display: flex;
   justify-content: center;
   margin-top: 20px;
-  overflow-x: auto;       /* horizontal scroll for narrow screens */
+  overflow-x: auto;
   padding: 10px;
-  max-width: 600px;       /* max width for wide screens */
+  max-width: 600px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -28,24 +28,27 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 .keyboard {
   display: flex;
   position: relative;
-  flex-shrink: 0;         /* prevent shrinking when container scrolls */
+  flex-shrink: 0;
   height: 200px;
   width: 100%;
   max-width: 600px;
 }
 
 .white-key {
-  flex: 1 0 auto;         /* flexible width, does not shrink below min */
-  min-width: 40px;        /* minimum key width for usability */
-  height: 180px;
-  background: white;
-  border: 1px solid #000;
+  flex: 1 0 auto;
+  min-width: 30px;
+  height: 200px;
   position: relative;
+  background: white;
+  border: 1px solid black;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 6px;
+  font-size: 12px;
   cursor: pointer;
   box-sizing: border-box;
-  text-align: center;
-  line-height: 180px;
-  font-size: 12px;
 }
 .white-key.active { background: #d0f0d0; }
 .white-key.mic-detect { background: red; }
@@ -53,11 +56,11 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 .black-key {
   position: absolute;
   top: 0;
-  height: 120px;
+  height: 60%;
   background: black;
-  z-index: 2;
-  cursor: pointer;
   border-radius: 0 0 3px 3px;
+  cursor: pointer;
+  z-index: 2;
 }
 .black-key.active { background: #444; }
 .black-key.mic-detect { background: red; }
@@ -76,30 +79,33 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 
 <h1>Chord Trainer 🎶</h1>
 
+Setup:<br>
+
 <div id="setups">
   <label><input type="checkbox" id="arpeggioMode"> Arpeggio Mode</label>
-  <label><input type="checkbox" class="category" value="power" checked> Power (2 notes)</label>
-  <label><input type="checkbox" class="category" value="major"> Major (3 notes)</label>
-  <label><input type="checkbox" class="category" value="minor"> Minor (3 notes)</label>
-  <label><input type="checkbox" class="category" value="sus2"> Sus2 (3 notes)</label>
-  <label><input type="checkbox" class="category" value="sus4"> Sus4 (3 notes)</label>
-  <label><input type="checkbox" class="category" value="aug"> Augmented (3 notes)</label>
-  <label><input type="checkbox" class="category" value="dim"> Diminished (3 notes)</label>
-  <label><input type="checkbox" class="category" value="maj7"> Major 7th (4 notes)</label>
-  <label><input type="checkbox" class="category" value="min7"> Minor 7th (4 notes)</label>
-  <label><input type="checkbox" class="category" value="add9"> Add9 (4 notes)</label>
+  <label><input type="checkbox" class="category" value="power" checked> Power (0,7)</label>
+  <label><input type="checkbox" class="category" value="major"> Major (0,4,7)</label>
+  <label><input type="checkbox" class="category" value="minor"> Minor (0,3,7)</label>
+  <label><input type="checkbox" class="category" value="sus2"> Sus2 (0,2,7)</label>
+  <label><input type="checkbox" class="category" value="sus4"> Sus4 (0,5,7)</label>
+  <label><input type="checkbox" class="category" value="aug"> Augmented (0,4,8)</label>
+  <label><input type="checkbox" class="category" value="dim"> Diminished (0,3,6)</label>
+  <label><input type="checkbox" class="category" value="maj7"> Major 7th (0,4,7,11)</label>
+  <label><input type="checkbox" class="category" value="min7"> Minor 7th (0,4,7,10)</label>
+  <label><input type="checkbox" class="category" value="add9"> Add9 (0,4,7,14)</label>
 </div>
+
+<p id="status">Press "Start"!</p>
 
 <div id="controls">
-  <button id="startBtn">Start/Restart</button>
-  <button id="replayBtn" disabled>Replay Chord</button>
-  <button id="nextBtn" disabled>Next Chord</button>
-  <button id="resetSelectionBtn" disabled>Reset Selected Notes</button>
-  <button id="submitBtn" disabled>Submit Answer</button>
+  <button id="startBtn">Start</button>
+  <button id="replayBtn" disabled>Replay</button>
+  <button id="nextBtn" disabled>Next</button>
+  <button id="resetSelectionBtn" disabled>Reset</button>
+  <button id="submitBtn" disabled>Submit</button>
 </div>
 
-<p id="status">Press "Start/Restart Game" to begin!</p>
-<p id="selectedNotes">Selected Notes: </p>
+<p id="selectedNotes">Selected: </p>
 
 <div id="keyboardContainer">
   <div class="keyboard" id="keyboard"></div>
@@ -196,7 +202,7 @@ createKeyboard();
 
 function updateSelectedNotes(){
   const sorted = selectedNotes.slice().sort((a,b)=>notes.indexOf(a)-notes.indexOf(b));
-  document.getElementById('selectedNotes').textContent = 'Selected Notes: ' + sorted.join(', ');
+  document.getElementById('selectedNotes').textContent = 'Selected: ' + sorted.join(', ');
 }
 
 // ---------------- CHORDS ----------------
@@ -288,7 +294,7 @@ function nextChord(){
   }
   round++;
   currentChord = generateChord();
-  document.getElementById('status').textContent=`Round ${round}: Listen...`;
+  document.getElementById('status').textContent=`Round ${round}: Listen, select, submit...`;
   replayBtn.disabled=false; submitBtn.disabled=false; resetSelectionBtn.disabled=false; nextBtn.disabled=true;
   playChord(currentChord);
 }
@@ -302,9 +308,9 @@ function submitAnswer(){
   let message;
   if(sortedCorrect.join()===sortedUser.join()){
     score++;
-    message=`✅ Correct! ${currentChord.root} ${currentChord.category}: ${correct} (${score}/${round})`;
+    message=`✅ Correct! It was ${currentChord.root} ${currentChord.category} (${correct}). Score: ${score}/${maxRounds}`;
   } else {
-    message=`❌ Wrong! Correct ${currentChord.root} ${currentChord.category}: ${correct}. Your answer: ${user} (${score}/${round})`;
+    message=`❌ Wrong! It was ${currentChord.root} ${currentChord.category} (${correct}). Score: ${score}/${maxRounds}`;
   }
   document.getElementById('status').textContent=message;
   acceptingPitch=false;
