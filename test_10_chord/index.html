@@ -100,9 +100,9 @@ Setup:<br>
 <div id="controls">
   <button id="startBtn">Start</button>
   <button id="replayBtn" disabled>Replay</button>
-  <button id="nextBtn" disabled>Next</button>
-  <button id="resetSelectionBtn" disabled>Reset</button>
+  <button id="deleteBtn" disabled>Delete</button>
   <button id="submitBtn" disabled>Submit</button>
+  <button id="nextBtn" disabled>Next</button>
 </div>
 
 <p id="selectedNotes">Selected: </p>
@@ -248,15 +248,15 @@ const startBtn = document.getElementById('startBtn');
 const replayBtn = document.getElementById('replayBtn');
 const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
-const resetSelectionBtn = document.getElementById('resetSelectionBtn');
+const deleteBtn = document.getElementById('deleteBtn');
 const arpeggioCheckbox = document.getElementById('arpeggioMode');
 
 startBtn.addEventListener('click', startGame);
 replayBtn.addEventListener('click', replayChord);
 nextBtn.addEventListener('click', nextChord);
 submitBtn.addEventListener('click', submitAnswer);
-resetSelectionBtn.addEventListener('click', ()=>{
-  selectedNotes = [];
+deleteBtn.addEventListener('click', ()=>{
+  selectedNotes.pop();
   updateSelectedNotes();
 });
 
@@ -289,13 +289,19 @@ function replayChord(){
 function nextChord(){
   if(round>=maxRounds){
     document.getElementById('status').textContent=`✅ Game over! Score: ${score}/${maxRounds}`;
-    replayBtn.disabled=true; nextBtn.disabled=true; submitBtn.disabled=true; resetSelectionBtn.disabled=true;
+    replayBtn.disabled=true;
+    nextBtn.disabled=true;
+    submitBtn.disabled=true;
+    deleteBtn.disabled=true;
     return;
   }
   round++;
   currentChord = generateChord();
   document.getElementById('status').textContent=`Round ${round}: Listen, select, submit...`;
-  replayBtn.disabled=false; submitBtn.disabled=false; resetSelectionBtn.disabled=false; nextBtn.disabled=true;
+  replayBtn.disabled=false;
+  submitBtn.disabled=false;
+  deleteBtn.disabled=false;
+  nextBtn.disabled=true;
   playChord(currentChord);
 }
 
@@ -314,6 +320,7 @@ function submitAnswer(){
   }
   document.getElementById('status').textContent=message;
   acceptingPitch=false;
+  deleteBtn.disabled=true;
   submitBtn.disabled=true;
   nextBtn.disabled=false;
 }
