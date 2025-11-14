@@ -99,10 +99,9 @@ Setup:<br>
 
 <div id="controls">
   <button id="startBtn">Start</button>
-  <button id="replayBtn" disabled>Replay</button>
-  <button id="deleteBtn" disabled>Delete</button>
-  <button id="submitBtn" disabled>Submit</button>
-  <button id="nextBtn" disabled>Next</button>
+  <button id="replayBtn">Replay</button>
+  <button id="deleteBtn">Delete</button>
+  <button id="submitBtn">Submit</button>
 </div>
 
 <p id="selectedNotes">Selected: </p>
@@ -126,12 +125,9 @@ notes.forEach(n => {
 });
 
 let currentChord = null;
-let round = 0;
-let score = 0;
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let acceptingPitch = false;
 let selectedNotes = [];
-let maxRounds = 10;
 const minNote = 'C3';
 const maxNote = 'B4';
 
@@ -246,24 +242,28 @@ function generateChord(){
 // ---------------- GAME LOGIC ----------------
 const startBtn = document.getElementById('startBtn');
 const replayBtn = document.getElementById('replayBtn');
-const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const arpeggioCheckbox = document.getElementById('arpeggioMode');
 
 startBtn.addEventListener('click', startGame);
 replayBtn.addEventListener('click', replayChord);
-nextBtn.addEventListener('click', nextChord);
 submitBtn.addEventListener('click', submitAnswer);
 deleteBtn.addEventListener('click', ()=>{
   selectedNotes.pop();
   updateSelectedNotes();
 });
+replayBtn.disabled=true;
+deleteBtn.disabled=true;
+submitBtn.disabled=true;
 
 function startGame(){
-  round=0; score=0;
-  document.getElementById('status').textContent="Listen and identify the chord!";
-  nextChord();
+  document.getElementById('status').textContent=`Listen, select, submit...`;
+  currentChord = generateChord();
+  playChord(currentChord);
+  replayBtn.disabled=false;
+  deleteBtn.disabled=false;
+  submitBtn.disabled=false;
 }
 
 function playChord(chord){
@@ -283,26 +283,12 @@ function playChord(chord){
 }
 
 function replayChord(){
-  if(currentChord) playChord(currentChord);
-}
-
-function nextChord(){
-  if(round>=maxRounds){
-    document.getElementById('status').textContent=`✅ Game over! Score: ${score}/${maxRounds}`;
-    replayBtn.disabled=true;
-    nextBtn.disabled=true;
-    submitBtn.disabled=true;
-    deleteBtn.disabled=true;
-    return;
-  }
-  round++;
-  currentChord = generateChord();
-  document.getElementById('status').textContent=`Round ${round}: Listen, select, submit...`;
-  replayBtn.disabled=false;
-  submitBtn.disabled=false;
-  deleteBtn.disabled=false;
-  nextBtn.disabled=true;
+  document.getElementById('status').textContent=`Listen, select, submit...`;
   playChord(currentChord);
+  selectedNotes = []
+  replayBtn.disabled=false;
+  deleteBtn.disabled=false;
+  submitBtn.disabled=false;
 }
 
 function submitAnswer(){
@@ -313,16 +299,11 @@ function submitAnswer(){
   let user = sortedUser.join(', ');
   let message;
   if(sortedCorrect.join()===sortedUser.join()){
-    score++;
-    message=`✅ Correct! It was ${currentChord.root} ${currentChord.category} (${correct}). Score: ${score}/${maxRounds}`;
+    message=`✅ Correct! It was ${currentChord.root} ${currentChord.category} (${correct})!`;
   } else {
-    message=`❌ Wrong! It was ${currentChord.root} ${currentChord.category} (${correct}). Score: ${score}/${maxRounds}`;
+    message=`❌ Wrong! It was ${currentChord.root} ${currentChord.category} (${correct})!`;
   }
   document.getElementById('status').textContent=message;
-  acceptingPitch=false;
-  deleteBtn.disabled=true;
-  submitBtn.disabled=true;
-  nextBtn.disabled=false;
 }
 
 // ---------------- MICROPHONE PITCH DETECTION ----------------
