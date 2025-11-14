@@ -68,7 +68,6 @@ button { margin: 5px; padding: 5px 10px; font-size: 16px; }
 <h1>Pitch Trainer 🎶</h1>
 
 <button id="startBtn">Start</button>
-<button id="replayBtn" disabled>Replay</button>
 <p id="status">Press "Start"!</p>
 
 <div id="keyboardContainer">
@@ -90,11 +89,8 @@ notes.forEach(n => {
 });
 
 let currentNote = null;
-let round = 0;
-let score = 0;
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const testRange = {min:'C3', max:'B4'};
-const totalRounds = 10;
 let acceptingPitch = false;
 
 // ---------------- AUDIO ----------------
@@ -202,58 +198,20 @@ positionBlackKeys();
 
 // ---------------- GAME LOGIC ----------------
 const startBtn = document.getElementById('startBtn');
-const replayBtn = document.getElementById('replayBtn');
-
 startBtn.addEventListener('click', startGame);
-replayBtn.addEventListener('click', playOrReplay);
 
 function startGame(){
-  round=0; score=0; currentNote=null;
-  document.getElementById('status').textContent="Listen and match the notes!";
-  replayBtn.disabled = false;
-  replayBtn.textContent = "Replay";
-  nextRound();
-}
-
-function playOrReplay(){
-  if(currentNote){
-    // Replay current note
-    acceptingPitch = false;
-    document.getElementById('status').textContent=`Round ${round}: Replay...`;
-    playNote(currentNote,0.5);
-    setTimeout(()=>{
-      acceptingPitch = true;
-      document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
-      replayBtn.textContent = "Replay";
-    }, 500);
-  } else {
-    // Start next round
-    nextRound();
-  }
-}
-
-function nextRound(){
+  currentNote=null;
   const rangeNotes = notes.slice(notes.indexOf(testRange.min), notes.indexOf(testRange.max)+1);
-  if(round>=totalRounds){
-    document.getElementById('status').textContent=`✅ Game over! Score: ${score}/${totalRounds}`;
-    acceptingPitch = false;
-    currentNote = null;
-    replayBtn.disabled = true;
-    return;
-  }
-  round++;
   currentNote = rangeNotes[Math.floor(Math.random()*rangeNotes.length)];
-  document.getElementById('status').textContent=`Round ${round}: Listen...`;
+  document.getElementById('status').textContent=`Listen...`;
   acceptingPitch = false;
-  replayBtn.disabled = true;
 
   setTimeout(()=>{
     playNote(currentNote,0.5);
     setTimeout(()=>{
       acceptingPitch = true;
-      document.getElementById('status').textContent=`Round ${round}: Sing or click the note!`;
-      replayBtn.disabled = false;
-      replayBtn.textContent = "Replay";
+      document.getElementById('status').textContent=`Select the note!`;
     }, 500);
   }, 200);
 }
@@ -262,15 +220,12 @@ function handleUserGuess(note){
   if(!acceptingPitch) return;
   flashKey(note);
   if(note===currentNote){
-    score++;
-    document.getElementById('status').textContent=`✅ Correct! It was ${currentNote}! (${score}/${round})`;
+    document.getElementById('status').textContent=`✅ Correct! It was ${currentNote}.`;
   } else {
-    document.getElementById('status').textContent=`❌ Wrong! It was ${currentNote} not ${note}! (${score}/${round})`;
+    document.getElementById('status').textContent=`❌ Wrong! It was ${currentNote} not ${note}.`;
   }
   acceptingPitch = false;
   currentNote=null;
-  replayBtn.textContent = "Next";
-  replayBtn.disabled = false;
 }
 
 function flashKey(note){
