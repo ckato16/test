@@ -53,13 +53,15 @@ canvas {
   cursor:pointer;
 }
 
-button, input { margin:5px; padding: 10px 20px; }
+button, input { margin:5px;  }
 </style>
 </head>
 <body>
 
 <h2>MIDI Piano Roll Trainer 🎵</h2>
 <input type="file" id="midiFile" accept=".mid,.midi"/>
+<br>
+<button id="loadSample">Load sample</button>
 <br>
 <label>BPM: <input type="number" id="bpm" value="120" min="30" max="240"></label>
 <br>
@@ -183,6 +185,33 @@ document.getElementById('midiFile').addEventListener('change', async e=>{
   midiNotes.sort((a,b)=>a.time-b.time);
   alert("✅ MIDI loaded! Click Start to play.");
 });
+
+document.getElementById("loadSample").onclick = () => {
+  // quarter note = 0.5s (at BPM 120)
+  const q = 0.5;
+
+  const notes = [
+    60,61,62,63,64,65,66,67
+  ];
+
+  midiNotes = [];
+  let time = 0;
+
+  notes.forEach(n => {
+    if (n === null) {
+      time += q; // rest
+    } else {
+      midiNotes.push({
+        noteNumber: n,
+        time: time,
+        duration: q
+      });
+      time += q;
+    }
+  });
+
+  alert("🎵 Sample loaded! Press Start.");
+};
 
 /* ======================
         CONTROLS
