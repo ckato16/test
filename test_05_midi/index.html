@@ -5,10 +5,54 @@
 <title>MIDI Piano Roll Trainer 🎹</title>
 <style>
 body { font-family: sans-serif; background: #fff; text-align: center; }
-canvas { background: #fafafa; display: block; margin: 20px auto; border:1px solid #aaa; }
-#keyboard { position: relative; margin: 10px auto; width: 1750px; height: 200px; user-select: none; }
-.white-key { width: 40px; height: 200px; background: white; border:1px solid #000; position: absolute; cursor: pointer; }
-.black-key { width: 28px; height: 120px; background: black; position: absolute; top:0; z-index:2; cursor:pointer; }
+
+#pianoWrapper {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-top: 20px;
+}
+
+/* Container that gets scaled */
+.scale-container {
+  transform-origin: top left;
+  display: inline-block;
+}
+
+/* Canvas */
+canvas {
+  background: #fafafa;
+  display: block;
+  border:1px solid #aaa;
+}
+
+/* Keyboard */
+#keyboard {
+  position: relative;
+  width: 1750px;
+  height: 200px;
+  user-select: none;
+}
+
+.white-key {
+  width: 40px;
+  height: 200px;
+  background: white;
+  border:1px solid #000;
+  position: absolute;
+  cursor: pointer;
+}
+
+.black-key {
+  width: 30px;
+  height: 120px;
+  background: black;
+  position: absolute;
+  top:0;
+  z-index:2;
+  cursor:pointer;
+}
+
 button, input { margin:5px; padding: 10px 20px; }
 </style>
 </head>
@@ -21,133 +65,199 @@ button, input { margin:5px; padding: 10px 20px; }
 <br>
 <button id="startBtn">Start</button>
 <button id="stopBtn">Stop</button>
-<canvas id="pianoRoll" width="1750" height="400"></canvas>
-<div id="keyboard"></div>
+
+<!-- ★ WRAPPER AND SCALE CONTAINER -->
+<div id="pianoWrapper">
+  <div id="scaleContainer" class="scale-container">
+    <canvas id="pianoRoll" width="1750" height="400"></canvas>
+    <div id="keyboard"></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tone@14.8.40/build/Tone.min.js"></script>
+
 <script>
 const canvas = document.getElementById('pianoRoll');
 const ctx = canvas.getContext('2d');
+
 const keyboardDiv = document.getElementById('keyboard');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const bpmInput = document.getElementById('bpm');
 
-const startMidiNote = 36; // C2
-const endMidiNote = 96;   // C7
+const startMidiNote = 24;
+const endMidiNote = 96;
+
 const whiteKeyWidth = 40;
-const blackKeyWidth = 28;
+const blackKeyWidth = 30;
 
 let midiNotes = [];
+let activeNotes = {};
 let startTime = null;
 let running = false;
-let activeNotes = {};
+
 let synth = new Tone.Synth().toDestination();
 
-// --- Build Piano Keyboard ---
+/* ======================
+      BUILD KEYBOARD
+====================== */
 const keys = [];
 let whiteIndex = 0;
+
 for (let i=startMidiNote; i<=endMidiNote; i++) {
   const noteName = Tone.Frequency(i,"midi").toNote();
   const isBlack = noteName.includes('#');
   let key;
+
   if (!isBlack) {
     key = document.createElement('div');
     key.className = 'white-key';
     key.style.left = (whiteIndex * whiteKeyWidth) + 'px';
+
+    // --- WHITE KEY LABEL ---
+    const label = document.createElement("div");
+    label.style.position = "absolute";
+    label.style.bottom = "5px";
+    label.style.width = "100%";
+    label.style.textAlign = "center";
+    label.style.fontSize = "14px";
+    label.style.pointerEvents = "none";
+    label.innerText = noteName;
+    key.appendChild(label);    
+
     whiteIndex++;
   } else {
     key = document.createElement('div');
     key.className = 'black-key';
     key.style.left = (whiteIndex * whiteKeyWidth - blackKeyWidth/2) + 'px';
   }
+
   key.dataset.note = i;
   key.onmousedown = ()=> playSound(i, true);
   key.onmouseup = ()=> playSound(i, false);
+
   keyboardDiv.appendChild(key);
-  keys.push({note:i, element:key, isBlack:isBlack});
+  keys.push({note:i, element:key, isBlack});
 }
 
 function getKeyX(note){
   const key = keys.find(k=>k.note===note);
-  if(!key) return 0;
-  return parseFloat(key.element.style.left);
+  return key ? parseFloat(key.element.style.left) : 0;
 }
 
-// --- Sound  ---
+/* ======================
+         SOUND
+====================== */
 function playSound(note, pressed){
   if (pressed) {
     synth.triggerAttack(Tone.Frequency(note,"midi"));
     activeNotes[note] = performance.now();
-    for (let n of midiNotes) {
-      if (!n.hit && n.noteNumber===note && Math.abs(currentTime() - n.time) < 0.3) {
-        n.hit = true;
-        n.startHold = performance.now();
-        break;
-      }
-    }
   } else {
     synth.triggerRelease();
-    if (activeNotes[note]) {
-      delete activeNotes[note];
-    }
+    delete activeNotes[note];
   }
 }
+
+/* ======================
+   MIDI LOAD HANDLING
+====================== */
+document.getElementById('midiFile').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const midi = new Midi(arrayBuffer);
+
+  midiNotes = [];
+  midi.tracks.forEach(track=>{
+    track.notes.forEach(n=>{
+      midiNotes.push({
+        noteNumber:n.midi,
+        time:n.time,
+        duration:n.duration
+      });
+    });
+  });
+
+  midiNotes.sort((a,b)=>a.time-b.time);
+  alert("✅ MIDI loaded! Click Start to play.");
+});
+
+/* ======================
+        CONTROLS
+====================== */
+startBtn.onclick = ()=>{
+  if (!midiNotes.length) return alert("Upload a MIDI file first!");
+  startTime = performance.now();
+  running = true;
+};
+
+stopBtn.onclick = ()=> running = false;
 
 function currentTime() {
   return (performance.now() - startTime) / 1000;
 }
 
 function getFallSpeed(){
-  const bpm = parseFloat(bpmInput.value);
-  return 150 * (bpm / 120);
+  return 150 * (parseFloat(bpmInput.value) / 120);
 }
 
-// --- MIDI Load ---
-document.getElementById('midiFile').addEventListener('change', async e=>{
-  const file = e.target.files[0];
-  if (!file) return;
-  const arrayBuffer = await file.arrayBuffer();
-  const midi = new Midi(arrayBuffer);
-  midiNotes = [];
-  midi.tracks.forEach(track=>{
-    track.notes.forEach(n=>{
-      midiNotes.push({noteNumber:n.midi,time:n.time,duration:n.duration,hit:false,lengthChecked:false});
-    });
-  });
-  midiNotes.sort((a,b)=>a.time-b.time);
-  alert("✅ MIDI loaded! Click Start to play.");
-});
+/* ======================
+      DRAW LOOP
+====================== */
+function getKeyWidth(note) {
+  const key = keys.find(k => k.note === note);
+  if (!key) return 20;
+  return key.isBlack ? blackKeyWidth : whiteKeyWidth;
+}
 
-// --- Controls ---
-startBtn.onclick = ()=>{
-  if(!midiNotes.length) return alert("Upload a MIDI file first!");
-  startTime = performance.now();
-  running = true;
-};
-stopBtn.onclick = ()=>{ running = false; };
-
-// --- Draw Loop ---
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(running && startTime){
+
+  if (running && startTime) {
     const now = currentTime();
     const speed = getFallSpeed();
     const targetLine = canvas.height - 10;
-    midiNotes.forEach(n=>{
+
+    for (let n of midiNotes) {
       const x = getKeyX(n.noteNumber);
       const noteHeight = n.duration * speed;
-      const y = (now - n.time) * speed - noteHeight; // ✅ fall downward from top
+      const y = (now - n.time) * speed - noteHeight;
+      const width = getKeyWidth(n.noteNumber);
+
       if (y < targetLine) {
-        ctx.fillStyle = n.hit ? 'green' : 'red';
-        ctx.fillRect(x, y, 20, noteHeight);
+        ctx.fillStyle = 'red';
+        ctx.fillRect(x, y, width, noteHeight);
       }
-    });
+    }
   }
+
   requestAnimationFrame(draw);
 }
 draw();
+
+/* ======================
+   RESPONSIVE SCALING
+====================== */
+function resizeScale() {
+  const baseWidth = 1750;  // full keyboard width
+  const screenWidth = window.innerWidth;
+
+  const minScale = 0.4;
+  const maxScale = 1.0;
+
+  let scale = screenWidth / baseWidth;
+  scale = Math.min(maxScale, Math.max(minScale, scale));
+
+  const scaleContainer = document.getElementById("scaleContainer");
+  scaleContainer.style.transform = `scale(${scale})`;
+  scaleContainer.style.width = baseWidth + "px";
+}
+
+window.addEventListener("resize", resizeScale);
+resizeScale();
 </script>
+
 </body>
 </html>
