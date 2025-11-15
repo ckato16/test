@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Piano Roll Trainer 🎹</title>
+<title>MIDI Piano Roll Trainer 🎹</title>
 <style>
 body { font-family: sans-serif; background: #fff; text-align: center; }
 canvas { background: #fafafa; display: block; margin: 20px auto; border:1px solid #aaa; }
@@ -14,7 +14,7 @@ button, input { margin:5px; padding: 10px 20px; }
 </head>
 <body>
 
-<h2>Piano Roll Trainer 🎵</h2>
+<h2>MIDI Piano Roll Trainer 🎵</h2>
 <input type="file" id="midiFile" accept=".mid,.midi"/>
 <br>
 <label>BPM: <input type="number" id="bpm" value="120" min="30" max="240"></label>
@@ -23,7 +23,6 @@ button, input { margin:5px; padding: 10px 20px; }
 <button id="stopBtn">Stop</button>
 <canvas id="pianoRoll" width="1750" height="400"></canvas>
 <div id="keyboard"></div>
-<div>Score: <span id="score">0</span></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tone@14.8.40/build/Tone.min.js"></script>
@@ -31,7 +30,6 @@ button, input { margin:5px; padding: 10px 20px; }
 const canvas = document.getElementById('pianoRoll');
 const ctx = canvas.getContext('2d');
 const keyboardDiv = document.getElementById('keyboard');
-const scoreSpan = document.getElementById('score');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const bpmInput = document.getElementById('bpm');
@@ -43,7 +41,6 @@ const blackKeyWidth = 28;
 
 let midiNotes = [];
 let startTime = null;
-let score = 0;
 let running = false;
 let activeNotes = {};
 let synth = new Tone.Synth().toDestination();
@@ -66,8 +63,8 @@ for (let i=startMidiNote; i<=endMidiNote; i++) {
     key.style.left = (whiteIndex * whiteKeyWidth - blackKeyWidth/2) + 'px';
   }
   key.dataset.note = i;
-  key.onmousedown = ()=> playAndCheck(i, true);
-  key.onmouseup = ()=> playAndCheck(i, false);
+  key.onmousedown = ()=> playSound(i, true);
+  key.onmouseup = ()=> playSound(i, false);
   keyboardDiv.appendChild(key);
   keys.push({note:i, element:key, isBlack:isBlack});
 }
@@ -78,8 +75,8 @@ function getKeyX(note){
   return parseFloat(key.element.style.left);
 }
 
-// --- Sound + Scoring ---
-function playAndCheck(note, pressed){
+// --- Sound  ---
+function playSound(note, pressed){
   if (pressed) {
     synth.triggerAttack(Tone.Frequency(note,"midi"));
     activeNotes[note] = performance.now();
@@ -87,29 +84,15 @@ function playAndCheck(note, pressed){
       if (!n.hit && n.noteNumber===note && Math.abs(currentTime() - n.time) < 0.3) {
         n.hit = true;
         n.startHold = performance.now();
-        score++;
-        scoreSpan.innerText = score;
         break;
       }
     }
   } else {
     synth.triggerRelease();
     if (activeNotes[note]) {
-      const heldTime = (performance.now() - activeNotes[note]) / 1000;
       delete activeNotes[note];
-      checkLengthAccuracy(note, heldTime);
     }
   }
-}
-
-function checkLengthAccuracy(note, heldTime){
-  const midiNote = midiNotes.find(n=>n.noteNumber===note && n.hit && !n.lengthChecked);
-  if (!midiNote) return;
-  midiNote.lengthChecked = true;
-  const diff = Math.abs(midiNote.duration - heldTime);
-  if (diff < 0.2) score += 2;
-  else if (diff < 0.5) score += 1;
-  scoreSpan.innerText = score;
 }
 
 function currentTime() {
@@ -134,8 +117,6 @@ document.getElementById('midiFile').addEventListener('change', async e=>{
     });
   });
   midiNotes.sort((a,b)=>a.time-b.time);
-  score = 0;
-  scoreSpan.innerText = score;
   alert("✅ MIDI loaded! Click Start to play.");
 });
 
