@@ -3,10 +3,15 @@
   <body>
     <pre>
 no app because of package dep
-run interactively
+run interactively like this
 docker build -t spleeter-app .
 docker run -it --rm -v /PATH_IN_HOST/data:/data spleeter-app
 spleeter separate -p spleeter:5stems -o ./ xxx.wav
+
+basic pitch was possible to make an app
+docker build -t basic-pitch-app .
+docker run -p 5000:5000 basic-pitch-app
+http://localhost:5000/
     </pre>
   </body>
 </html>
