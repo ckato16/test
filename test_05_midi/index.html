@@ -68,6 +68,16 @@ button, input { margin:5px; }
 
 <button id="startBtn">Start</button>
 <button id="stopBtn">Stop</button>
+<button id="resetBtn">Reset</button>
+
+<br>
+
+<!-- 🎚️ SEEK SLIDER -->
+<label>
+  Position:
+  <input type="range" id="seekSlider" min="0" max="1" step="0.0001" value="0" style="width:400px;">
+</label>
+<span id="timeLabel">0.00s</span>
 
 <div id="scoreDisplay">Score: 0%</div>
 
@@ -88,7 +98,11 @@ const ctx = canvas.getContext('2d');
 const keyboardDiv = document.getElementById('keyboard');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
+const resetBtn = document.getElementById('resetBtn');
 const bpmInput = document.getElementById('bpm');
+
+const seekSlider = document.getElementById("seekSlider");
+const timeLabel = document.getElementById("timeLabel");
 
 const startMidiNote = 24;
 const endMidiNote = 96;
@@ -104,6 +118,10 @@ let running = false;
 let totalNotes = 0;
 let hitNotes = 0;
 
+let totalSongTime = 0;
+let manualOffset = 0;
+let useManualSeek = false;
+
 let synth = new Tone.Synth().toDestination();
 
 /* SCORE DISPLAY */
@@ -113,9 +131,9 @@ function updateScore() {
     "Score: " + score.toFixed(1) + "%";
 }
 
-/* ======================
-      BUILD KEYBOARD
-====================== */
+/* ================
+      KEYBOARD
+================ */
 const keys = [];
 let whiteIndex = 0;
 
@@ -138,7 +156,6 @@ for (let i=startMidiNote; i<=endMidiNote; i++) {
     label.style.pointerEvents = "none";
     label.innerText = noteName;
     key.appendChild(label);
-
     whiteIndex++;
   } else {
     key = document.createElement('div');
@@ -164,23 +181,20 @@ const numWhiteKeys = keys.filter(k => !k.isBlack).length;
 canvas.width = numWhiteKeys * whiteKeyWidth;
 
 /* ======================
-         SOUND + SCORING
+       SOUND + SCORING
 ====================== */
 function playSound(note, pressed){
   if (pressed) {
     synth.triggerAttack(Tone.Frequency(note,"midi"));
     activeNotes[note] = performance.now();
 
-    // SCORE: Check if any note overlaps the top of key
-    const targetLine = canvas.height - 10;  // top of keyboard
+    const targetLine = canvas.height - 10;
     for (let n of midiNotes) {
-      if (n.hit) continue; // skip already hit
+      if (n.hit) continue;
       if (n.noteNumber === note) {
         const speed = getFallSpeed();
         const noteHeight = n.duration * speed;
         const y = (currentTime() - n.time) * speed - noteHeight;
-
-        // if note overlaps the top of the key
         if (y + noteHeight >= targetLine && y <= targetLine) {
           n.hit = true;
           hitNotes++;
@@ -189,7 +203,6 @@ function playSound(note, pressed){
         }
       }
     }
-
   } else {
     synth.triggerRelease();
     delete activeNotes[note];
@@ -219,17 +232,20 @@ document.getElementById('midiFile').addEventListener('change', async e=>{
 
   midiNotes.sort((a,b)=>a.time-b.time);
 
+  totalSongTime = computeSongEnd();
+
   totalNotes = midiNotes.length;
   hitNotes = 0;
   midiNotes.forEach(n => n.hit = false);
   updateScore();
 
+  seekSlider.value = 0;
+  manualOffset = 0;
+
   alert("✅ MIDI loaded! Click Start to play.");
 });
 
-/* ======================
-   SAMPLE LOADER
-====================== */
+/* SAMPLE LOADER */
 document.getElementById("loadSample").onclick = () => {
   const q = 0.5;
   const notes = [60,61,62,63,64,65,66,67];
@@ -242,32 +258,107 @@ document.getElementById("loadSample").onclick = () => {
     t += q;
   });
 
+  totalSongTime = computeSongEnd();
+
   totalNotes = midiNotes.length;
   hitNotes = 0;
   midiNotes.forEach(n => n.hit = false);
   updateScore();
 
+  seekSlider.value = 0;
+  manualOffset = 0;
+
   alert("🎵 Sample loaded! Press Start.");
 };
+
+function computeSongEnd() {
+  const speed = getFallSpeed();
+  const canvasHeight = canvas.height;
+
+  // Compute the time when each note fully leaves the screen
+  let maxTime = 0;
+
+  midiNotes.forEach(n => {
+    const fallComplete = n.time + n.duration + (canvasHeight / speed);
+    if (fallComplete > maxTime) maxTime = fallComplete;
+  });
+
+  return maxTime;
+}
 
 /* ======================
         CONTROLS
 ====================== */
 startBtn.onclick = ()=>{
   if (!midiNotes.length) return alert("Load MIDI or sample first!");
-  startTime = performance.now();
+  startTime = performance.now() - manualOffset * 1000;
   running = true;
+  useManualSeek = false;
 };
 
 stopBtn.onclick = ()=> running = false;
 
+resetBtn.onclick = () => {
+  // Stop playback
+  running = false;
+
+  // Reset score
+  hitNotes = 0;
+  midiNotes.forEach(n => n.hit = false);
+  updateScore();
+
+  // Reset position
+  manualOffset = 0;
+  seekSlider.value = 0;
+  timeLabel.textContent = "0.00s";
+
+  // Force a redraw at time = 0
+  useManualSeek = true;
+  draw();   // force visual update
+  useManualSeek = false;
+};
+
+
 function currentTime() {
-  return (performance.now() - startTime) / 1000;
+  let t;
+
+  if (!running) {
+    // When stopped or slider is active → show manualOffset
+    t = manualOffset;
+  } else if (useManualSeek) {
+    // First frame after sliding
+    t = manualOffset;
+  } else {
+    // Normal playback
+    t = (performance.now() - startTime) / 1000;
+  }
+
+  // Clamp to song length
+  if (totalSongTime > 0)
+    t = Math.min(t, totalSongTime);
+
+  return t;
 }
 
 function getFallSpeed(){
   return 150 * (parseFloat(bpmInput.value) / 120);
 }
+
+/* ======================
+      SEEK SLIDER
+====================== */
+seekSlider.oninput = () => {
+  if (!totalSongTime) return;
+
+  useManualSeek = true;
+  manualOffset = parseFloat(seekSlider.value) * totalSongTime;
+  timeLabel.textContent = manualOffset.toFixed(2) + "s";
+};
+
+seekSlider.onchange = () => {
+  startTime = performance.now() - manualOffset * 1000;
+  useManualSeek = false;
+};
 
 /* ======================
       DRAW LOOP
@@ -280,11 +371,17 @@ function getKeyWidth(note) {
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  if (running && startTime) {
-    const now = currentTime();
-    const speed = getFallSpeed();
-    const targetLine = canvas.height - 10;
+  const now = currentTime();
+  if (running && now >= totalSongTime) {
+    running = false;
+    manualOffset = totalSongTime;
+    seekSlider.value = 1;
+    timeLabel.textContent = totalSongTime.toFixed(2) + "s";
+  }
+  const speed = getFallSpeed();
+  const targetLine = canvas.height - 10;
 
+  if (midiNotes.length > 0) {
     for (let n of midiNotes) {
       const x = getKeyX(n.noteNumber);
       const width = getKeyWidth(n.noteNumber);
@@ -296,6 +393,13 @@ function draw(){
         ctx.fillRect(x, y, width, h);
       }
     }
+  }
+
+  // Update slider while playing
+  if (running && totalSongTime > 0 && !useManualSeek) {
+    const t = currentTime();
+    seekSlider.value = Math.min(1, t / totalSongTime);
+    timeLabel.textContent = t.toFixed(2) + "s";
   }
 
   requestAnimationFrame(draw);
