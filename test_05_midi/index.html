@@ -40,6 +40,9 @@ canvas {
   position: absolute;
   cursor: pointer;
 }
+.white-key.active {
+  background: red;
+}
 
 .black-key {
   width: 30px;
@@ -49,6 +52,9 @@ canvas {
   top:0;
   z-index:2;
   cursor:pointer;
+}
+.black-key.active {
+  background: red;
 }
 
 #scoreDisplay {
@@ -184,9 +190,11 @@ canvas.width = numWhiteKeys * whiteKeyWidth;
        SOUND + SCORING
 ====================== */
 function playSound(note, pressed){
+  const key = keys.find(k => k.note === note)?.element;
   if (pressed) {
     synth.triggerAttack(Tone.Frequency(note,"midi"));
     activeNotes[note] = performance.now();
+    if (key) key.classList.add("active");
 
     const targetLine = canvas.height - 10;
     for (let n of midiNotes) {
@@ -206,6 +214,7 @@ function playSound(note, pressed){
   } else {
     synth.triggerRelease();
     delete activeNotes[note];
+    if (key) key.classList.remove("active");
   }
 }
 
