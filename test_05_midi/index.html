@@ -43,6 +43,9 @@ canvas {
 .white-key.active {
   background: red;
 }
+.white-key.mic-active {
+  background: orange !important;
+}
 
 .black-key {
   width: 30px;
@@ -56,6 +59,9 @@ canvas {
 .black-key.active {
   background: red;
 }
+.black-key.mic-active {
+  background: orange !important;
+}
 
 #scoreDisplay {
   margin-top: 10px;
@@ -68,8 +74,10 @@ button, input { margin:5px; }
 
 <h2>MIDI Piano Roll Trainer 🎵</h2>
 <input type="file" id="midiFile" accept=".mid,.midi"/><br>
-<button id="loadSample">Load sample</button><br>
-
+<button id="loadSample">Load sample</button>
+<br>
+<button id="startMic">Start Mic Input</button>
+<br>
 <label>BPM: <input type="number" id="bpm" value="120" min="30" max="240"></label><br>
 
 <button id="startBtn">Start</button>
@@ -187,6 +195,125 @@ const numWhiteKeys = keys.filter(k => !k.isBlack).length;
 canvas.width = numWhiteKeys * whiteKeyWidth;
 
 /* ======================
+       AUDIO 
+====================== */
+
+let audioContext;
+let analyser;
+let microphone;
+let dataArray;
+
+document.getElementById("startMic").onclick = async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("Microphone not supported!");
+    return;
+  }
+
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  microphone = audioContext.createMediaStreamSource(stream);
+
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 2048;
+
+  microphone.connect(analyser);
+  dataArray = new Float32Array(analyser.fftSize);
+
+  detectPitch();
+};
+
+function detectPitch() {
+  analyser.getFloatTimeDomainData(dataArray);
+
+  const freq = autoCorrelate(dataArray, audioContext.sampleRate);
+
+  // Remove all previous mic-active flags first
+  keys.forEach(k => k.element.classList.remove("mic-active"));
+
+  if (freq !== -1) {
+    // Only highlight key if we detected a pitch
+    const midi = Math.round(69 + 12 * Math.log2(freq / 440)); // freq → MIDI
+    const key = keys.find(k => k.note === midi)?.element;
+    if (key) key.classList.add("mic-active");
+    // Register the hit for scoring
+    checkMicNoteHit(midi);
+  }
+
+  requestAnimationFrame(detectPitch);
+}
+
+function highlightMicKey(midi) {
+  // Remove all previous active flags from mic
+  keys.forEach(k => {
+    if (k.element.classList.contains("mic-active")) {
+      k.element.classList.remove("mic-active");
+    }
+  });
+
+  const key = keys.find(k => k.note === midi)?.element;
+  if (key) key.classList.add("mic-active");
+}
+
+function autoCorrelate(buffer, sampleRate) {
+  // Implements the ACF algorithm for pitch detection
+  let SIZE = buffer.length;
+  let rms = 0;
+
+  for (let i = 0; i < SIZE; i++) rms += buffer[i] * buffer[i];
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.01) return -1; // Too quiet
+
+  let r1 = 0, r2 = SIZE - 1;
+  while (Math.abs(buffer[r1]) < 0.02 && r1 < SIZE) r1++;
+  while (Math.abs(buffer[r2]) < 0.02 && r2 > 0) r2--;
+
+  buffer = buffer.slice(r1, r2);
+  SIZE = buffer.length;
+
+  let c = new Array(SIZE).fill(0);
+  for (let i = 0; i < SIZE; i++) {
+    for (let j = 0; j < SIZE - i; j++) {
+      c[i] = c[i] + buffer[j] * buffer[j + i];
+    }
+  }
+
+  let d = 0;
+  while (c[d] > c[d+1]) d++;
+  let maxval = -1, maxpos = -1;
+  for (let i = d; i < SIZE; i++) {
+    if (c[i] > maxval) {
+      maxval = c[i];
+      maxpos = i;
+    }
+  }
+  let T0 = maxpos;
+
+  return T0 ? sampleRate / T0 : -1;
+}
+
+function checkMicNoteHit(midi) {
+  const targetLine = canvas.height - 10;
+  const now = currentTime();
+
+  for (let n of midiNotes) {
+    if (n.hit) continue;       // Already hit
+    if (n.noteNumber === midi) {
+      const speed = getFallSpeed();
+      const noteHeight = n.duration * speed;
+      const y = (now - n.time) * speed - noteHeight;
+
+      // If the note is in the "hittable" zone
+      if (y + noteHeight >= targetLine && y <= targetLine) {
+        n.hit = true;
+        hitNotes++;
+        updateScore();
+        break;
+      }
+    }
+  }
+}
+
+/* ======================
        SOUND + SCORING
 ====================== */
 function playSound(note, pressed){
@@ -257,7 +384,7 @@ document.getElementById('midiFile').addEventListener('change', async e=>{
 /* SAMPLE LOADER */
 document.getElementById("loadSample").onclick = () => {
   const q = 0.5;
-  const notes = [60,61,62,63,64,65,66,67];
+  const notes = [48,49,50,51,52];
 
   midiNotes = [];
   let t = 0;
