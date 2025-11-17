@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Pitch & Spectrum Visualizer</title>
+<title>Spectrum & Spectrogram Visualizer</title>
 <style>
   body {
     background:#fff;
@@ -13,168 +13,217 @@
     padding:0;
   }
   h1 { margin:20px; }
-  #pitch, #freq { font-size:24px; margin:10px; }
-  #canvas {
-    display:block;
-    margin:20px auto;
-    border:1px solid #ccc;
-    background:#fafafa;
+  #container {
+    display:flex;
+    justify-content:center;
+    gap:20px;
   }
-  #status { color:#666; margin:10px; }
+  .canvas-container {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  canvas {
+    border:1px solid #ccc;
+    background:#fff;
+  }
+  button {
+    margin-top:10px;
+    padding:8px 15px;
+    font-size:14px;
+  }
 </style>
 </head>
 <body>
 
-<h1>Pitch & Spectrum Visualizer</h1>
-<div id="pitch">Pitch: —</div>
-<div id="freq">Freq: — Hz</div>
-<canvas id="canvas" width="900" height="400"></canvas>
-<div id="status">Allow microphone access to begin.</div>
+<h1>Spectrum & Spectrogram Visualizer</h1>
+
+<div id="container">
+  <div class="canvas-container">
+    <canvas id="spectrumCanvas" width="500" height="500"></canvas>
+  </div>
+  <div class="canvas-container">
+    <canvas id="spectrogramCanvas" width="500" height="500"></canvas>
+  </div>
+</div>
 
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const pitchEl = document.getElementById("pitch");
-const freqEl  = document.getElementById("freq");
-const statusEl= document.getElementById("status");
+const spectrumCanvas = document.getElementById("spectrumCanvas");
+const spectrumCtx = spectrumCanvas.getContext("2d");
+const spectrogramCanvas = document.getElementById("spectrogramCanvas");
+const spectrogramCtx = spectrogramCanvas.getContext("2d");
 
-navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
-  statusEl.textContent="Listening...";
-  const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+const maxSpectrogramSeconds = 10;
+const spectrogramFrames = [];
+let mediaRecorder, audioChunks = [];
+
+navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 4096;
+  analyser.fftSize = 2048;
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
-  const timeData = new Float32Array(analyser.fftSize);
+
   const source = audioCtx.createMediaStreamSource(stream);
   source.connect(analyser);
 
-  const maxFreq = 2000;                 // Limit display 0–2000 Hz
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+  mediaRecorder.start();
+
+  const maxFreq = 2000; // Hz
   const Nyquist = audioCtx.sampleRate/2;
   const maxBin = Math.floor(bufferLength*(maxFreq/Nyquist));
-  const leftMargin = 50, bottomMargin = 40, topMargin = 10;
 
-  function draw(){
+  function draw() {
     analyser.getByteFrequencyData(dataArray);
-    analyser.getFloatTimeDomainData(timeData);
-    const freq = autoCorrelate(timeData,audioCtx.sampleRate);
 
-    // --- Clear background ---
-    ctx.fillStyle="#fafafa";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    // --- Axes ---
-    const graphW = canvas.width-leftMargin-20;
-    const graphH = canvas.height-bottomMargin-topMargin;
-    const originX = leftMargin;
-    const originY = canvas.height-bottomMargin;
-    ctx.strokeStyle="#000";
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(originX,originY);
-    ctx.lineTo(originX+graphW,originY);
-    ctx.moveTo(originX,originY);
-    ctx.lineTo(originX,topMargin);
-    ctx.stroke();
-
-    // --- X-axis ticks (0–2000 Hz) ---
-    ctx.font="12px Arial";
-    ctx.fillStyle="#000";
-    const tickCount=10;
-    for(let i=0;i<=tickCount;i++){
-      const f=(i/tickCount)*maxFreq;
-      const x=originX+(f/maxFreq)*graphW;
-      ctx.beginPath();
-      ctx.moveTo(x,originY);
-      ctx.lineTo(x,originY+5);
-      ctx.stroke();
-      ctx.fillText(f.toFixed(0),x-10,originY+20);
-    }
-    ctx.fillText("Frequency (Hz)",originX+graphW/2-40,originY+35);
-
-    // --- Y-axis ticks (Amplitude 0–255) ---
-    const yTicks=5;
-    for(let i=0;i<=yTicks;i++){
-      const val=(i/yTicks)*255;
-      const y=originY-(i/yTicks)*graphH;
-      ctx.beginPath();
-      ctx.moveTo(originX-5,y);
-      ctx.lineTo(originX,y);
-      ctx.stroke();
-      ctx.fillText(val.toFixed(0),originX-35,y+4);
-    }
-    ctx.save();
-    ctx.translate(15,canvas.height/2);
-    ctx.rotate(-Math.PI/2);
-    ctx.fillText("Amplitude (0–255)",0,0);
-    ctx.restore();
-
-    // --- Spectrum bars (uniform color) ---
-    const barWidth = graphW / maxBin;
-    ctx.fillStyle = "#4A90E2";   // Blue bars
-    for(let i=0;i<maxBin;i++){
-      const barHeight = (dataArray[i]/255)*graphH;
-      const x = originX + i*barWidth;
-      const y = originY - barHeight;
-      ctx.fillRect(x, y, barWidth, barHeight);
-    }
-
-    // --- Pitch line ---
-    if(freq>0 && freq<=maxFreq){
-      const {note,octave} = freqToNoteName(freq);
-      pitchEl.textContent=`Pitch: ${note}${octave}`;
-      freqEl.textContent=`Freq: ${freq.toFixed(1)} Hz`;
-      const xLine = originX + (freq/maxFreq)*graphW;
-      ctx.strokeStyle="red";
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(xLine,topMargin);
-      ctx.lineTo(xLine,originY);
-      ctx.stroke();
-      ctx.fillStyle="red";
-      ctx.fillText(`${note}${octave} (${freq.toFixed(1)} Hz)`,xLine+5,topMargin+15);
-    } else {
-      pitchEl.textContent="Pitch: —";
-      freqEl.textContent="Freq: — Hz";
-    }
+    drawSpectrum(dataArray, maxBin, maxFreq);
+    saveForSpectrogram(dataArray, maxBin);
+    drawSpectrogram(maxFreq);
 
     requestAnimationFrame(draw);
   }
+
   draw();
-}).catch(err=>{
-  statusEl.textContent="Microphone access denied: "+err.message;
 });
 
-// -------- Pitch detection --------
-function autoCorrelate(buf,sampleRate){
-  let SIZE=buf.length;
-  let rms=0;
-  for(let i=0;i<SIZE;i++)rms+=buf[i]*buf[i];
-  rms=Math.sqrt(rms/SIZE);
-  if(rms<0.01)return -1;
-  let r1=0,r2=SIZE-1,thres=0.2;
-  for(let i=0;i<SIZE/2;i++)if(Math.abs(buf[i])<thres){r1=i;break;}
-  for(let i=1;i<SIZE/2;i++)if(Math.abs(buf[SIZE-i])<thres){r2=SIZE-i;break;}
-  buf=buf.slice(r1,r2);SIZE=buf.length;
-  const c=new Array(SIZE).fill(0);
-  for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE-i;j++)c[i]+=buf[j]*buf[j+i];
-  let d=0;while(c[d]>c[d+1])d++;
-  let maxval=-1,maxpos=-1;
-  for(let i=d;i<SIZE;i++){if(c[i]>maxval){maxval=c[i];maxpos=i;}}
-  let T0=maxpos;
-  return sampleRate/T0;
+// --- Spectrum ---
+function drawSpectrum(dataArray, maxBin, maxFreq){
+  const ctx = spectrumCtx;
+  const width = spectrumCanvas.width;
+  const height = spectrumCanvas.height;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, width, height);
+
+  const leftMargin = 50, bottomMargin = 50, topMargin = 40;
+  const graphW = width - leftMargin - 20;
+  const graphH = height - bottomMargin - topMargin;
+  const originX = leftMargin;
+  const originY = height - bottomMargin;
+
+  // axes
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(originX, originY);
+  ctx.lineTo(originX+graphW, originY);
+  ctx.moveTo(originX, originY);
+  ctx.lineTo(originX, topMargin);
+  ctx.stroke();
+
+  ctx.font="12px Arial";
+  ctx.fillStyle="#000";
+  // x-axis ticks
+  const tickCount=5;
+  for(let i=0;i<=tickCount;i++){
+    const f = (i/tickCount)*maxFreq;
+    const x = originX + (f/maxFreq)*graphW;
+    ctx.beginPath();
+    ctx.moveTo(x, originY);
+    ctx.lineTo(x, originY+5);
+    ctx.stroke();
+    ctx.fillText(f.toFixed(0)+" Hz", x-15, originY+20);
+  }
+  ctx.fillText("Frequency (Hz)", originX+graphW/2-40, originY+35);
+
+  // y-axis ticks
+  const yTicks=5;
+  for(let i=0;i<=yTicks;i++){
+    const val = (i/yTicks)*255;
+    const y = originY - (i/yTicks)*graphH;
+    ctx.beginPath();
+    ctx.moveTo(originX-5, y);
+    ctx.lineTo(originX, y);
+    ctx.stroke();
+    ctx.fillText(val.toFixed(0), originX-40, y+4);
+  }
+  ctx.save();
+  ctx.translate(15, height/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText("Amplitude",0,0);
+  ctx.restore();
+
+  // spectrum bars (unfilled black outline)
+  const barWidth = graphW / maxBin;
+  ctx.strokeStyle = "#000"; // black outline
+  ctx.lineWidth = 1;
+  for(let i=0;i<maxBin;i++){
+    const barHeight = (dataArray[i]/255)*graphH;
+    const x = originX + i*barWidth;
+    const y = originY - barHeight;
+    ctx.strokeRect(x, y, barWidth, barHeight);
+  }
 }
 
-// -------- Frequency → note --------
-function freqToNoteName(f){
-  const A4=440;
-  const noteNum=12*Math.log2(f/A4)+69;
-  const n=Math.round(noteNum);
-  const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-  const note=names[n%12];
-  const octave=Math.floor(n/12)-1;
-  return {note,octave};
+// --- Spectrogram ---
+function saveForSpectrogram(dataArray, maxBin){
+  const col = new Uint8Array(maxBin);
+  for(let i=0;i<maxBin;i++) col[i] = dataArray[i];
+  spectrogramFrames.push(col);
+  const maxFrames = spectrogramCanvas.width;
+  if(spectrogramFrames.length > maxFrames) spectrogramFrames.shift();
+}
+
+function drawSpectrogram(maxFreq){
+  const ctx = spectrogramCtx;
+  const width = spectrogramCanvas.width;
+  const height = spectrogramCanvas.height;
+  ctx.fillStyle="#fff";
+  ctx.fillRect(0,0,width,height);
+
+  const leftMargin = 50, bottomMargin = 50, topMargin = 40;
+  const graphW = width - leftMargin - 20;
+  const graphH = height - bottomMargin - topMargin;
+
+  const frames = spectrogramFrames;
+  const maxFrames = frames.length;
+  const maxBin = frames[0]?.length || 0;
+
+  // draw spectrogram (inverted grayscale: high = black, low = white)
+  for(let x=0;x<maxFrames;x++){
+    const col = frames[x];
+    for(let y=0;y<maxBin;y++){
+      const v = col[y]/255;
+      const intensity = 255 - Math.floor(v*255); // invert
+      ctx.fillStyle = `rgb(${intensity},${intensity},${intensity})`;
+      const px = leftMargin + x*(graphW/maxFrames);
+      const py = topMargin + graphH - y*(graphH/maxBin);
+      ctx.fillRect(px, py, Math.ceil(graphW/maxFrames), Math.ceil(graphH/maxBin));
+    }
+  }
+
+  // axes
+  ctx.strokeStyle="#000";
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(leftMargin, topMargin);
+  ctx.lineTo(leftMargin, topMargin + graphH);
+  ctx.lineTo(leftMargin + graphW, topMargin + graphH);
+  ctx.stroke();
+
+  ctx.font="12px Arial";
+  ctx.fillStyle="#000";
+
+  // x-axis labels
+  ctx.fillText("5 s", leftMargin + graphW*0.5 - 10, topMargin + graphH + 25);
+  ctx.fillText("10 s", leftMargin + graphW - 15, topMargin + graphH + 25);
+  ctx.fillText("Time (s)", leftMargin + graphW/2 - 20, topMargin + graphH + 40);
+
+  // y-axis labels (frequency)
+  const yTicks=5;
+  for(let i=0;i<=yTicks;i++){
+    const f = (i/yTicks)*maxFreq;
+    const y = topMargin + graphH - (i/yTicks)*graphH;
+    ctx.fillText(f.toFixed(0)+" Hz", 5, y+4);
+  }
+  ctx.save();
+  ctx.translate(15, topMargin + graphH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText("Frequency (Hz)",0,0);
+  ctx.restore();
 }
 </script>
+
 </body>
 </html>
