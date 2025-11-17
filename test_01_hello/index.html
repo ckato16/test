@@ -5,7 +5,22 @@
 
   <h2>Hello test</h2>
 
-  <p>Before the script...</p>
+  <!--
+  <script>
+    alert( 'Hello!' );
+  </script>
+  -->
+
+  <!--
+  <script src="script.js"></script>
+  -->
+
+  <script src="https://cdn.jsdelivr.net/gh/ckato16/test/test_01_hello/script.js"></script>
+
+  <pre>
+docker build -t hello-app .
+docker run -p 5000:5000 hello-app
+  </pre>
 
   <button id="callBtn">Call Backend</button>
   <p id="output"></p>
@@ -29,20 +44,6 @@
       }
     });
   </script>
-
-  <!--
-  <script>
-    alert( 'Hello!' );
-  </script>
-  -->  
-
-  <!--
-  <script src="script.js"></script>
-  -->
-
-  <script src="https://cdn.jsdelivr.net/gh/ckato16/test/test_01_hello/script.js"></script>
-
-  <p>...After the script.</p>
 
 </body>
 

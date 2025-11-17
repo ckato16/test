@@ -1,1 +1,1 @@
-alert( 'Hello!' );
+alert( 'Hello from the script!' );
