@@ -1,0 +1,49 @@
+<!DOCTYPE HTML>
+<html>
+
+<body>
+
+  <h2>Hello test</h2>
+
+  <p>Before the script...</p>
+
+  <button id="callBtn">Call Backend</button>
+  <p id="output"></p>
+
+  <script>
+    // When the button is clicked...
+    document.getElementById('callBtn').addEventListener('click', async () => {
+      try {
+        // Call the backend API (running inside Docker)
+        const res = await fetch('http://localhost:5000/hello');
+
+        // Parse JSON response
+        const data = await res.json();
+
+        // Display message in the page
+        document.getElementById('output').textContent = data.message;
+
+      } catch (err) {
+        // Display any errors that occur (e.g. server not running)
+        document.getElementById('output').textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+
+  <!--
+  <script>
+    alert( 'Hello!' );
+  </script>
+  -->  
+
+  <!--
+  <script src="script.js"></script>
+  -->
+
+  <script src="https://cdn.jsdelivr.net/gh/ckato16/test/test_01_hello/script.js"></script>
+
+  <p>...After the script.</p>
+
+</body>
+
+</html>
