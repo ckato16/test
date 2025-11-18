@@ -205,7 +205,7 @@ function drawSpectrum(dataArray, maxBin, maxFreq){
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
 
-  const leftMargin = 50, bottomMargin = 50, topMargin = 40;
+  const leftMargin = 70, bottomMargin = 50, topMargin = 40;
   const graphW = width - leftMargin - 20;
   const graphH = height - bottomMargin - topMargin;
   const originX = leftMargin;
@@ -222,6 +222,7 @@ function drawSpectrum(dataArray, maxBin, maxFreq){
   ctx.font="12px Arial";
   ctx.fillStyle="#000";
 
+  // x-axis
   const tickCount=5;
   for(let i=0;i<=tickCount;i++){
     const f = (i/tickCount)*maxFreq;
@@ -230,9 +231,11 @@ function drawSpectrum(dataArray, maxBin, maxFreq){
     ctx.moveTo(x, originY);
     ctx.lineTo(x, originY+5);
     ctx.stroke();
-    ctx.fillText(f.toFixed(0)+" Hz", x-15, originY+20);
+    ctx.fillText(f.toFixed(0), x-15, originY+20);
   }
+  ctx.fillText("Frequency (Hz)", leftMargin + graphW/2 - 20, topMargin + graphH + 40);
 
+  // y-axis
   const yTicks=5;
   for(let i=0;i<=yTicks;i++){
     const val = (i/yTicks)*255;
@@ -270,9 +273,11 @@ function drawSpectrogram(maxFreq){
   ctx.fillStyle="#fff";
   ctx.fillRect(0,0,width,height);
 
-  const leftMargin = 50, bottomMargin = 50, topMargin = 40;
+  const leftMargin = 70, bottomMargin = 50, topMargin = 40;
   const graphW = width - leftMargin - 20;
   const graphH = height - bottomMargin - topMargin;
+  const originX = leftMargin;
+  const originY = height - bottomMargin;
 
   const frames = spectrogramFrames;
   const framesCount = frames.length;
@@ -295,7 +300,7 @@ function drawSpectrogram(maxFreq){
     }
   }
 
-  /* AXES */
+  // axes
   ctx.strokeStyle="#000";
   ctx.beginPath();
   ctx.moveTo(leftMargin, topMargin);
@@ -306,22 +311,29 @@ function drawSpectrogram(maxFreq){
   ctx.font = "12px Arial";
   ctx.fillStyle = "#000";
 
-  // X-axis labels
-  ctx.fillText("0 s", leftMargin, topMargin + graphH + 25);
-  ctx.fillText("5 s", leftMargin + graphW*0.5 - 10, topMargin + graphH + 25);
-  ctx.fillText("10 s", leftMargin + graphW - 25, topMargin + graphH + 25);
+  // x-axis
+  const tickCount=5;
+  for(let i=0;i<=tickCount;i++){
+    const f = (i/tickCount)*10;
+    const x = originX + (f/10)*graphW;
+    ctx.beginPath();
+    ctx.moveTo(x, originY);
+    ctx.lineTo(x, originY+5);
+    ctx.stroke();
+    ctx.fillText(f.toFixed(0), x-15, originY+20);
+  }
   ctx.fillText("Time (s)", leftMargin + graphW/2 - 20, topMargin + graphH + 40);
 
-  // Y-axis (frequency)
+  // y-axis
   const yTicks=5;
   for(let i=0;i<=yTicks;i++){
     const f = (i/yTicks)*maxFreq;
     const y = topMargin + graphH - (i/yTicks)*graphH;
-    ctx.fillText(f.toFixed(0)+" Hz", 5, y+4);
+    ctx.fillText(f.toFixed(0), originX-40, y+4);
   }
 
   ctx.save();
-  ctx.translate(15, topMargin + graphH/2);
+  ctx.translate(15, height/2);
   ctx.rotate(-Math.PI/2);
   ctx.fillText("Frequency (Hz)",0,0);
   ctx.restore();
