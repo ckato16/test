@@ -250,7 +250,7 @@ function drawSpectrum(dataArray, maxBin, maxFreq){
   ctx.save();
   ctx.translate(15, height/2);
   ctx.rotate(-Math.PI/2);
-  ctx.fillText("Amplitude",0,0);
+  ctx.fillText("Magnitude",0,0);
   ctx.restore();
 
   const barWidth = graphW / maxBin;
@@ -327,9 +327,13 @@ function drawSpectrogram(maxFreq){
   // y-axis
   const yTicks=5;
   for(let i=0;i<=yTicks;i++){
-    const f = (i/yTicks)*maxFreq;
-    const y = topMargin + graphH - (i/yTicks)*graphH;
-    ctx.fillText(f.toFixed(0), originX-40, y+4);
+    const val = (i/yTicks)*2000;
+    const y = originY - (i/yTicks)*graphH;
+    ctx.beginPath();
+    ctx.moveTo(originX-5, y);
+    ctx.lineTo(originX, y);
+    ctx.stroke();
+    ctx.fillText(val.toFixed(0), originX-40, y+4);
   }
 
   ctx.save();
