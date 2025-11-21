@@ -46,6 +46,16 @@ let audioBufferR = [];
 
 const AUDIO_BUFFER_SECONDS = 12;  // store slightly more than 10 sec
 
+// ---- FOR FORMANT TRACKING ----
+let formantFrames = [];   // stores [F1, F2, F3...] for each column
+
+function storeFormantFrame(Fs) {
+    formantFrames.push(Fs);
+    if (formantFrames.length > FRAMES_NEEDED) {
+        formantFrames.shift();
+    }
+}
+
 /* -------------------------------------------------------
    SPECTROGRAM BUFFERING (10 SECONDS)
 -------------------------------------------------------- */
@@ -103,8 +113,38 @@ navigator.mediaDevices.getUserMedia({ audio:true }).then(stream => {
     const maxBin = Math.floor(bufferLength * (maxFreq / Nyquist));
     const dataArray = new Uint8Array(bufferLength);
 
+    // -------- SIMPLE FFT FORMANT ESTIMATOR (robust) --------
+    function estimateFormantsFFT(dataArray, sampleRate, maxFreq) {
+        const formants = [];
+        const binToHz = (sampleRate / 2) / dataArray.length;
+
+        for (let i = 2; i < dataArray.length - 2; i++) {
+            const v = dataArray[i];
+
+            if (v > dataArray[i - 1] &&
+                v > dataArray[i + 1] &&
+                v > 140) {               // threshold (tune if needed)
+                
+                const freq = i * binToHz;
+
+                if (freq < maxFreq) {
+                    formants.push(freq);
+                }
+            }
+        }
+
+        // pick the lowest formants: F1, F2, F3...
+        // tried 5 but saw up to 3 in test so 5 for now
+        formants.sort((a, b) => a - b);
+        return formants.slice(0, 5);
+    }
+
     function loop() {
         analyser.getByteFrequencyData(dataArray);
+
+        const formants = estimateFormantsFFT(dataArray, sampleRate, maxFreq);
+        storeFormantFrame(formants);
+        window.currentFormants = formants;
 
         drawSpectrum(dataArray, maxBin, maxFreq);
         saveForSpectrogram(dataArray, maxBin);
@@ -260,6 +300,21 @@ function drawSpectrum(dataArray, maxBin, maxFreq){
     const y = originY - barHeight;
     spectrumCtx.strokeRect(x, y, barWidth, barHeight);
   }
+
+  // ------- DRAW FORMANT LINES ON SPECTRUM -------
+  if (window.currentFormants) {
+      spectrumCtx.strokeStyle = "red";
+      spectrumCtx.lineWidth = 2;
+
+      window.currentFormants.forEach(f => {
+          const x = originX + (f / maxFreq) * graphW;
+
+          spectrumCtx.beginPath();
+          spectrumCtx.moveTo(x, topMargin);
+          spectrumCtx.lineTo(x, originY);
+          spectrumCtx.stroke();
+      });
+  }
 }
 
 /* -------------------------------------------------------
@@ -341,6 +396,26 @@ function drawSpectrogram(maxFreq){
   ctx.rotate(-Math.PI/2);
   ctx.fillText("Frequency (Hz)",0,0);
   ctx.restore();
+
+  // ---- DRAW FORMANT LINES ----
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 2;
+
+  for (let i = 0; i < formantFrames.length; i++) {
+      const Fs = formantFrames[i];
+      const x = leftMargin + (i / FRAMES_NEEDED) * graphW;
+
+      ctx.beginPath();
+
+      Fs.forEach(f => {
+          const y = originY - (f / maxFreq) * graphH;
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + 2, y);
+      });
+
+      ctx.stroke();
+  }
+  
 }
 </script>
 
