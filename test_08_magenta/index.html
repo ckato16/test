@@ -1,0 +1,5 @@
+<pre>
+docker buildx build --platform linux/arm64 -t magenta-notebook .
+docker run -it --rm -p 8888:8888 -v PATH_IN_HOST/notebooks:/app/notebooks magenta-notebook
+http://localhost:8888
+</pre>
