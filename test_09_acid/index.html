@@ -8,7 +8,6 @@
   button { cursor:pointer; }
 
   h2,h3,h4 { margin:4px 0; }
-
   hr { border-color:#444; margin:10px 0; }
 
   /* Global Controls */
@@ -36,8 +35,8 @@
   
   /* Spectrum */
   #spectrum { background:#000; display:block; }
+  #specWrapper { position:relative; width:800px; margin-top:20px; }
   .axis-label { font-size:10px; color:#eee; position:absolute; }
-  #specWrapper { position:relative; width:800px; }
 </style>
 </head>
 <body>
@@ -98,15 +97,15 @@
 <!-- -------------------- BASS SECTION -------------------- -->
 <h3>Bass Section</h3>
 
-  <div class="slider-container">
-    <label>Waveform</label>
-    <select id="bassWave">
-      <option value="sine">Sine</option>
-      <option value="square">Square</option>
-      <option value="sawtooth" selected>Saw</option>
-      <option value="triangle">Triangle</option>
-    </select>
-  </div>
+<div class="slider-container">
+  <label>Waveform</label>
+  <select id="bassWave">
+    <option value="sine">Sine</option>
+    <option value="square">Square</option>
+    <option value="sawtooth" selected>Saw</option>
+    <option value="triangle">Triangle</option>
+  </select>
+</div>
 
 <!-- Bass Sequence -->
 <div id="seq" class="seq-grid"></div>
@@ -121,7 +120,7 @@
   </div>
   <div class="slider-container">
     <label>Pitch Shift</label>
-    <input type="range" id="pitchShift" min="-12" max="12" value="0">
+    <input type="range" id="pitchShift" min="-12" max="12" step="1" value="0">
     <button onclick="pitchShift.value=0;">Reset</button>
     <div id="pitchVal">0</div>
   </div>
@@ -232,7 +231,7 @@ function resetDelayFB(){ delayFB.value=0.3; dFb.gain.value=0.0; I("dFbVal").text
 
 /* ------------------ SEQUENCERS ------------------ */
 /* Bass */
-let sequence=[]; const baseNote=36;
+let sequence=[]; const baseNote=48;
 for(let i=0;i<16;i++) sequence.push({note:baseNote, active:false, accent:false, slide:false});
 const seqDiv=I("seq");
 function renderSeq(play=-1){
@@ -306,24 +305,37 @@ function trigDrum(type){
   if(drumBuffers[type]){
     let s=ctx.createBufferSource(); s.buffer=drumBuffers[type]; let g=ctx.createGain(); g.gain.value=vol; s.connect(g); g.connect(ctx.destination); s.start(); return;
   }
-  let o=ctx.createOscillator(), g=ctx.createGain(); g.gain.value=vol;
-  if(type==="kick"){ o.frequency.setValueAtTime(150,ctx.currentTime); o.frequency.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3); }
-  if(type==="snare"){ o.type="triangle"; o.frequency.setValueAtTime(100,ctx.currentTime); } 
-  if(type==="hihat"){ o.type="square"; o.frequency.setValueAtTime(4000,ctx.currentTime); g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.05); }
-  o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.3);
 }
 
 playBtn.onclick=()=>{
-  if(!osc){ osc=ctx.createOscillator(); osc.type=bassWave.value; osc.connect(lp); osc.start(); }
-  if(timer){ clearInterval(timer); timer=null; step=0; renderSeq(); renderDrum(); return; }
-  let interval=60000/bpm.value/4;
+  if(timer){ clearInterval(timer); timer=null; playBtn.textContent="Play"; step=0; renderSeq(); renderDrum(); return; }
+  if(!osc){ osc=ctx.createOscillator(); osc.type=bassWave.value; osc.connect(lp); lp.connect(overdrive); overdrive.connect(amp); amp.connect(delay); delay.connect(ctx.destination); osc.start(); }
   timer=setInterval(()=>{
     playStep(sequence[step]);
     ["kick","snare","hihat"].forEach(d=>{ if(drumSeq[d][step]) trigDrum(d); });
     renderSeq(step); renderDrum(step);
     step=(step+1)%16;
-  }, interval);
+  }, 60000/bpm.value/4); // 16th notes
+  playBtn.textContent="Stop";
 };
+
+/* ------------------ SPECTRUM ------------------ */
+const canvas = I("spectrum"); const ctx2d = canvas.getContext("2d");
+const bufferLength = analyser.frequencyBinCount; const dataArray = new Uint8Array(bufferLength);
+
+function drawSpectrum(){
+  requestAnimationFrame(drawSpectrum);
+  analyser.getByteFrequencyData(dataArray);
+  ctx2d.fillStyle="#000"; ctx2d.fillRect(0,0,canvas.width,canvas.height);
+  const width=canvas.width, height=canvas.height;
+  for(let i=0;i<bufferLength;i++){
+    let val=dataArray[i]; let barHeight=val/255*height;
+    let x;
+    x=i/bufferLength*width;
+    ctx2d.fillStyle="lime"; ctx2d.fillRect(x, height-barHeight, width/bufferLength, barHeight);
+  }
+}
+drawSpectrum();
 </script>
 </body>
 </html>
