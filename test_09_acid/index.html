@@ -150,6 +150,24 @@
     <button onclick="resetDelayFB()">Reset</button>
     <div id="dFbVal">0.3</div>
   </div>
+
+  <!-- New Bass Controls -->
+  <div class="slider-container">
+    <label>Bass Volume</label>
+    <input type="range" id="bassVol" min="0" max="1" step="0.01" value="0.8">
+    <button onclick="bassVol.value=0.8;">Reset</button>
+    <div id="bassVolVal">0.8</div>
+  </div>
+
+  <div class="slider-container">
+    <label>Bass Waveform</label>
+    <select id="bassWave">
+      <option value="sine">Sine</option>
+      <option value="square">Square</option>
+      <option value="sawtooth" selected>Saw</option>
+      <option value="triangle">Triangle</option>
+    </select>
+  </div>
 </div>
 
 <hr>
@@ -194,6 +212,7 @@ const pitchShift=I("pitchShift"), lpCutoff=I("lpCutoff"), resonance=I("resonance
 const envMod=I("envMod"), decay=I("decay"), overdriveSlider=I("overdrive");
 const delayTime=I("delayTime"), delayFB=I("delayFB");
 const kickVol=I("kickVol"), snareVol=I("snareVol"), hihatVol=I("hihatVol");
+const bassVol = I("bassVol"), bassWave = I("bassWave");
 
 /* Display updates */
 pitchShift.oninput=()=>I("pitchVal").textContent=pitchShift.value;
@@ -207,6 +226,8 @@ delayFB.oninput=()=>{ dFb.gain.value=delayFB.value; I("dFbVal").textContent=dela
 kickVol.oninput=()=>I("kickVal").textContent=kickVol.value;
 snareVol.oninput=()=>I("snareVal").textContent=snareVol.value;
 hihatVol.oninput=()=>I("hihatVal").textContent=hihatVol.value;
+bassVol.oninput=()=>I("bassVolVal").textContent=bassVol.value;
+bassWave.onchange=()=>{ if(osc) osc.type=bassWave.value; };
 
 function resetOverdrive(){ overdriveSlider.value=0; overdrive.curve=makeOD(0); I("odVal").textContent="0"; }
 function resetDelayTime(){ delayTime.value=0.2; delay.delayTime.value=0.2; I("dTimeVal").textContent="0.2"; }
@@ -275,11 +296,12 @@ function playStep(s){
   if(s.slide && prevFreq){ osc.frequency.setValueAtTime(prevFreq,now); osc.frequency.linearRampToValueAtTime(f,now+0.12); } else { osc.frequency.setValueAtTime(f,now); }
   prevFreq=f;
   let accent = s.accent?1.4:1.0;
+  let vol = accent * parseFloat(bassVol.value);
   let baseLP = parseFloat(lpCutoff.value);
   let envAmt = parseFloat(envMod.value);
   let peakLP = baseLP + envAmt*5000;
   lp.frequency.cancelScheduledValues(now); lp.frequency.setValueAtTime(baseLP,now); lp.frequency.linearRampToValueAtTime(peakLP,now+0.05); lp.frequency.exponentialRampToValueAtTime(baseLP,now+parseFloat(decay.value));
-  amp.gain.cancelScheduledValues(now); amp.gain.setValueAtTime(0.0001,now); amp.gain.linearRampToValueAtTime(accent,now+0.01); amp.gain.exponentialRampToValueAtTime(0.0001,now+parseFloat(decay.value));
+  amp.gain.cancelScheduledValues(now); amp.gain.setValueAtTime(0.0001,now); amp.gain.linearRampToValueAtTime(vol,now+0.01); amp.gain.exponentialRampToValueAtTime(0.0001,now+parseFloat(decay.value));
 }
 
 function trigDrum(type){
@@ -287,45 +309,24 @@ function trigDrum(type){
   if(drumBuffers[type]){
     let s=ctx.createBufferSource(); s.buffer=drumBuffers[type]; let g=ctx.createGain(); g.gain.value=vol; s.connect(g); g.connect(ctx.destination); s.start(); return;
   }
-  // fallback
-  let o=ctx.createOscillator(), g=ctx.createGain(); g.gain.value=vol; o.connect(g); g.connect(ctx.destination);
-  if(type==="kick"){ o.type="sine"; o.frequency.setValueAtTime(120,ctx.currentTime); o.frequency.exponentialRampToValueAtTime(40,ctx.currentTime+0.1); g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);
-  } else if(type==="snare"){ o.type="triangle"; g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.2);
-  } else if(type==="hihat"){ o.type="square"; g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.05);}
-  o.start(); o.stop(ctx.currentTime+0.2);
+  let o=ctx.createOscillator(), g=ctx.createGain(); g.gain.value=vol;
+  if(type==="kick"){ o.frequency.setValueAtTime(150,ctx.currentTime); o.frequency.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3); }
+  if(type==="snare"){ o.type="triangle"; o.frequency.setValueAtTime(100,ctx.currentTime); } 
+  if(type==="hihat"){ o.type="square"; o.frequency.setValueAtTime(4000,ctx.currentTime); g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.05); }
+  o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.3);
 }
 
 playBtn.onclick=()=>{
-  if(timer){ clearInterval(timer); timer=null; playBtn.textContent="Play / Stop"; renderSeq(); renderDrum(); return; }
-  if(ctx.state==="suspended") ctx.resume();
-  osc=ctx.createOscillator(); osc.type="sawtooth"; osc.connect(lp); osc.start();
-  let interval=60000/parseInt(bpm.value)/4;
-  step=0;
+  if(!osc){ osc=ctx.createOscillator(); osc.type=bassWave.value; osc.connect(lp); osc.start(); }
+  if(timer){ clearInterval(timer); timer=null; step=0; renderSeq(); renderDrum(); return; }
+  let interval=60000/bpm.value/4;
   timer=setInterval(()=>{
     playStep(sequence[step]);
     ["kick","snare","hihat"].forEach(d=>{ if(drumSeq[d][step]) trigDrum(d); });
     renderSeq(step); renderDrum(step);
     step=(step+1)%16;
-  },interval);
-  playBtn.textContent="Stop";
+  }, interval);
 };
-
-/* ------------------ SPECTRUM ------------------ */
-const canvas=I("spectrum"); const ctxSpec=canvas.getContext("2d");
-function drawSpec(){
-  requestAnimationFrame(drawSpec);
-  let data=new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(data);
-  ctxSpec.fillStyle="#000"; ctxSpec.fillRect(0,0,canvas.width,canvas.height);
-  ctxSpec.fillStyle="#0f0";
-  let barWidth=canvas.width/data.length;
-  for(let i=0;i<data.length;i++){
-    let h=data[i]/255*canvas.height;
-    ctxSpec.fillRect(i*barWidth,canvas.height-h,barWidth, h);
-  }
-}
-drawSpec();
 </script>
-
 </body>
 </html>
