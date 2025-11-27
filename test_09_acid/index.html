@@ -61,6 +61,13 @@
 <!-- -------------------- DRUM SECTION -------------------- -->
 <h3>Drum Section</h3>
 
+<div>
+  Kick <input type="file" id="kickFile"><br>
+  Snare <input type="file" id="snareFile"><br>
+  Hi-Hat <input type="file" id="hihatFile">
+</div>
+<br>
+
 <!-- Drum Sequence -->
 <div id="drumSeq" class="seq-grid"></div>
 
@@ -68,27 +75,21 @@
 <div class="control-panel" id="drumControls">
   <div class="slider-container">
     <label>Kick</label>
-    <input type="range" id="kickVol" min="0" max="1" step="0.01" value="0.8">
-    <button onclick="kickVol.value=0.8;">Reset</button>
-    <div id="kickVal">0.8</div>
+    <input type="range" id="kickVol" min="0" max="1" step="0.01" value="0.5">
+    <button onclick="kickVol.value=0.5;">Reset</button>
+    <div id="kickVal">0.5</div>
   </div>
   <div class="slider-container">
     <label>Snare</label>
-    <input type="range" id="snareVol" min="0" max="1" step="0.01" value="0.8">
-    <button onclick="snareVol.value=0.8;">Reset</button>
-    <div id="snareVal">0.8</div>
+    <input type="range" id="snareVol" min="0" max="1" step="0.01" value="0.5">
+    <button onclick="snareVol.value=0.5;">Reset</button>
+    <div id="snareVal">0.5</div>
   </div>
   <div class="slider-container">
     <label>Hi-Hat</label>
-    <input type="range" id="hihatVol" min="0" max="1" step="0.01" value="0.8">
-    <button onclick="hihatVol.value=0.8;">Reset</button>
-    <div id="hihatVal">0.8</div>
-  </div>
-  <div>
-    <h4>Upload Drum Samples:</h4>
-    Kick <input type="file" id="kickFile"><br>
-    Snare <input type="file" id="snareFile"><br>
-    Hi-Hat <input type="file" id="hihatFile">
+    <input type="range" id="hihatVol" min="0" max="1" step="0.01" value="0.5">
+    <button onclick="hihatVol.value=0.5;">Reset</button>
+    <div id="hihatVal">0.5</div>
   </div>
 </div>
 
@@ -97,11 +98,27 @@
 <!-- -------------------- BASS SECTION -------------------- -->
 <h3>Bass Section</h3>
 
+  <div class="slider-container">
+    <label>Waveform</label>
+    <select id="bassWave">
+      <option value="sine">Sine</option>
+      <option value="square">Square</option>
+      <option value="sawtooth" selected>Saw</option>
+      <option value="triangle">Triangle</option>
+    </select>
+  </div>
+
 <!-- Bass Sequence -->
 <div id="seq" class="seq-grid"></div>
 
 <!-- Bass Controls -->
 <div class="control-panel" id="bassControls">
+  <div class="slider-container">
+    <label>Bass Volume</label>
+    <input type="range" id="bassVol" min="0" max="1" step="0.01" value="0.5">
+    <button onclick="bassVol.value=0.5;">Reset</button>
+    <div id="bassVolVal">0.5</div>
+  </div>
   <div class="slider-container">
     <label>Pitch Shift</label>
     <input type="range" id="pitchShift" min="-12" max="12" value="0">
@@ -140,37 +157,17 @@
   </div>
   <div class="slider-container">
     <label>Delay Time</label>
-    <input type="range" id="delayTime" min="0" max="1" step="0.01" value="0.2">
+    <input type="range" id="delayTime" min="0" max="1" step="0.01" value="0.0">
     <button onclick="resetDelayTime()">Reset</button>
-    <div id="dTimeVal">0.2</div>
+    <div id="dTimeVal">0.0</div>
   </div>
   <div class="slider-container">
     <label>Delay FB</label>
-    <input type="range" id="delayFB" min="0" max="0.95" step="0.01" value="0.3">
+    <input type="range" id="delayFB" min="0" max="0.95" step="0.01" value="0.0">
     <button onclick="resetDelayFB()">Reset</button>
-    <div id="dFbVal">0.3</div>
-  </div>
-
-  <!-- New Bass Controls -->
-  <div class="slider-container">
-    <label>Bass Volume</label>
-    <input type="range" id="bassVol" min="0" max="1" step="0.01" value="0.8">
-    <button onclick="bassVol.value=0.8;">Reset</button>
-    <div id="bassVolVal">0.8</div>
-  </div>
-
-  <div class="slider-container">
-    <label>Bass Waveform</label>
-    <select id="bassWave">
-      <option value="sine">Sine</option>
-      <option value="square">Square</option>
-      <option value="sawtooth" selected>Saw</option>
-      <option value="triangle">Triangle</option>
-    </select>
+    <div id="dFbVal">0.0</div>
   </div>
 </div>
-
-<hr>
 
 <!-- -------------------- SPECTRUM -------------------- -->
 <div id="specWrapper">
@@ -195,8 +192,8 @@ let amp = ctx.createGain(); amp.gain.value=0;
 let analyser = ctx.createAnalyser(); analyser.fftSize=2048;
 amp.connect(analyser); analyser.connect(ctx.destination);
 let overdrive = ctx.createWaveShaper(); overdrive.curve=makeOD(0); overdrive.oversample="4x";
-let delay = ctx.createDelay(); delay.delayTime.value=0.2;
-let dFb = ctx.createGain(); dFb.gain.value=0.3;
+let delay = ctx.createDelay(); delay.delayTime.value=0.0;
+let dFb = ctx.createGain(); dFb.gain.value=0.0;
 delay.connect(dFb); dFb.connect(delay); lp.connect(amp); amp.connect(delay); delay.connect(ctx.destination);
 
 function makeOD(a){
@@ -230,8 +227,8 @@ bassVol.oninput=()=>I("bassVolVal").textContent=bassVol.value;
 bassWave.onchange=()=>{ if(osc) osc.type=bassWave.value; };
 
 function resetOverdrive(){ overdriveSlider.value=0; overdrive.curve=makeOD(0); I("odVal").textContent="0"; }
-function resetDelayTime(){ delayTime.value=0.2; delay.delayTime.value=0.2; I("dTimeVal").textContent="0.2"; }
-function resetDelayFB(){ delayFB.value=0.3; dFb.gain.value=0.3; I("dFbVal").textContent="0.3"; }
+function resetDelayTime(){ delayTime.value=0.2; delay.delayTime.value=0.0; I("dTimeVal").textContent="0.0"; }
+function resetDelayFB(){ delayFB.value=0.3; dFb.gain.value=0.0; I("dFbVal").textContent="0.0"; }
 
 /* ------------------ SEQUENCERS ------------------ */
 /* Bass */
