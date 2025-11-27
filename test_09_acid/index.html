@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Drum and Bass sequencer</title>
+<style>
+  body { background:#111; color:#eee; font-family:sans-serif; padding:10px; }
+  button { cursor:pointer; }
+  #controls {
+    display:flex;
+    gap:20px;
+    margin-bottom:10px;
+    align-items:flex-end;
+    padding-bottom:10px;
+    border-bottom:1px solid #444;
+  }
+  .vslider {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    width:40px;
+  }
+  .vslider input[type=range] {
+    writing-mode: bt-lr;
+    appearance: slider-vertical;
+    width:40px;
+    height:160px;
+  }
+  .vslider label { font-size:11px; margin-bottom:4px; }
+  .vslider button { font-size:10px; margin-top:3px; }
+  #seq, #drumSeq {
+    margin-top:10px;
+    display:grid;
+    grid-template-columns:repeat(16,40px);
+    gap:6px;
+  }
+  .step-container { text-align:center; font-size:11px; }
+  .step, .dstep {
+    background:#222;
+    border:1px solid #555;
+    width:40px; height:35px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .step.active { background:#0f0; color:#000; }
+  .dstep.active { background:#f50; color:#000; }
+  .step.playing, .dstep.playing { outline:2px solid yellow; }
+  .pbtn { font-size:9px; padding:0 2px; margin:1px; }
+  #spectrum { background:#000; margin-top:20px; display:block; }
+  #specControls { margin-top:5px; }
+</style>
+</head>
+<body>
+
+<h2>Drum and Bass sequencer</h2>
+
+<!-- ----------------------------------------------------------
+     CONTROLS BAR (VERTICAL SLIDERS)
+------------------------------------------------------------- -->
+<div id="controls">
+
+  <!-- BPM -->
+  <div class="vslider">
+    <label>BPM</label>
+    <input type="range" id="bpm" min="60" max="200" value="120">
+    <div id="bpmVal">120</div>
+  </div>
+
+  <!-- Waveform -->
+  <div class="vslider">
+    <label>Wave</label>
+    <select id="waveform" style="width:40px;">
+      <option value="sawtooth">Saw</option>
+      <option value="square">Square</option>
+      <option value="sine">Sine</option>
+    </select>
+  </div>
+
+  <div class="vslider">
+    <label>Pitch</label>
+    <input type="range" id="pitchShift" min="-12" max="12" value="0">
+    <button onclick="pitchShift.value=0; pitchVal.textContent='0'">R</button>
+    <div id="pitchVal">0</div>
+  </div>
+
+  <div class="vslider">
+    <label>LP</label>
+    <input type="range" id="lpCutoff" min="200" max="8000" value="5000">
+    <button onclick="lpCutoff.value=5000; lp.frequency.value=5000; lpVal.textContent='5000'">R</button>
+    <div id="lpVal">5000</div>
+  </div>
+
+  <div class="vslider">
+    <label>Res</label>
+    <input type="range" id="resonance" min="0" max="25" value="5">
+    <button onclick="resonance.value=5; lp.Q.value=5; resVal.textContent='5'">R</button>
+    <div id="resVal">5</div>
+  </div>
+
+  <div class="vslider">
+    <label>Env</label>
+    <input type="range" id="envMod" min="0" max="1" step="0.01" value="0.5">
+    <button onclick="envMod.value=0.5; envVal.textContent='0.5'">R</button>
+    <div id="envVal">0.5</div>
+  </div>
+
+  <div class="vslider">
+    <label>Dec</label>
+    <input type="range" id="decay" min="0.05" max="1" step="0.01" value="0.3">
+    <button onclick="decay.value=0.3; decayVal.textContent='0.3'">R</button>
+    <div id="decayVal">0.3</div>
+  </div>
+
+  <div class="vslider">
+    <label>OD</label>
+    <input type="range" id="overdrive" min="0" max="1" step="0.01" value="0">
+    <button onclick="resetOverdrive()">R</button>
+    <div id="odVal">0</div>
+  </div>
+
+  <div class="vslider">
+    <label>D-Time</label>
+    <input type="range" id="delayTime" min="0" max="1" step="0.01" value="0.2">
+    <button onclick="resetDelayTime()">R</button>
+    <div id="dTimeVal">0.2</div>
+  </div>
+
+  <div class="vslider">
+    <label>D-Fb</label>
+    <input type="range" id="delayFeedback" min="0" max="0.95" step="0.01" value="0.3">
+    <button onclick="resetDelayFeedback()">R</button>
+    <div id="dFbVal">0.3</div>
+  </div>
+
+</div>
+
+<button id="play">Play / Stop</button>
+<button onclick="saveSequence()">Save Pattern</button>
+<input type="file" id="loadFile" onchange="loadSequence(this.files[0])">
+
+<!-- DRUM upload -->
+<h4>Upload Drum Samples:</h4>
+Kick <input type="file" id="kickFile">  
+Snare <input type="file" id="snareFile">  
+Hi-Hat <input type="file" id="hihatFile">
+
+<!-- ----------------------------------------------------------
+     BASS SEQUENCER
+------------------------------------------------------------- -->
+<h3>Bassline</h3>
+<div id="seq"></div>
+
+<!-- ----------------------------------------------------------
+     DRUM SEQUENCER
+------------------------------------------------------------- -->
+<h3>Drums</h3>
+<div id="drumSeq"></div>
+
+<!-- ----------------------------------------------------------
+     SPECTRUM
+------------------------------------------------------------- -->
+<canvas id="spectrum" width="800" height="200"></canvas>
+<div id="specControls">
+  Spectrum mode:
+  <select id="scaleSwitch">
+    <option value="linear">Linear</option>
+    <option value="log">Log</option>
+  </select>
+</div>
+
+<script>
+/* ---------------------------------------------------------
+   AUDIO
+--------------------------------------------------------- */
+const ctx = new AudioContext();
+
+let lp = ctx.createBiquadFilter();
+lp.type = "lowpass";
+lp.frequency.value = 5000;
+
+let amp = ctx.createGain();
+amp.gain.value = 0;
+
+let analyser = ctx.createAnalyser();
+analyser.fftSize = 2048;
+
+amp.connect(analyser);
+analyser.connect(ctx.destination);
+
+/* Overdrive */
+let overdrive = ctx.createWaveShaper();
+function makeOD(a){
+  let k=a*100,n=44100,c=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    let x=i/n*2-1;
+    c[i]=((3+k)*x*20*Math.PI/180)/(Math.PI+k*Math.abs(x));
+  }
+  return c;
+}
+overdrive.curve = makeOD(0);
+overdrive.oversample="4x";
+
+/* Delay */
+let delay = ctx.createDelay();
+delay.delayTime.value=0.2;
+let dFb = ctx.createGain();
+dFb.gain.value=0.3;
+delay.connect(dFb); dFb.connect(delay);
+
+/* Routing */
+lp.connect(amp);
+amp.connect(delay);
+delay.connect(ctx.destination);
+
+/* ---------------------------------------------------------
+   UI Elements
+--------------------------------------------------------- */
+function I(x){ return document.getElementById(x); }
+
+const bpm = I("bpm");
+const waveform = I("waveform");
+const pitchShift = I("pitchShift");
+const lpCutoff = I("lpCutoff");
+const resonance = I("resonance");
+const envMod = I("envMod");
+const decay = I("decay");
+const overdriveSlider = I("overdrive");
+const delayTime = I("delayTime");
+const delayFeedback = I("delayFeedback");
+const scaleSwitch = I("scaleSwitch");
+
+bpm.oninput = ()=> I("bpmVal").textContent=bpm.value;
+pitchShift.oninput = ()=> I("pitchVal").textContent=pitchShift.value;
+lpCutoff.oninput = ()=>{ lp.frequency.value=lpCutoff.value; lpVal.textContent=lpCutoff.value; };
+resonance.oninput = ()=>{ lp.Q.value=resonance.value; resVal.textContent=resonance.value; };
+envMod.oninput = ()=> I("envVal").textContent=envMod.value;
+decay.oninput = ()=> I("decayVal").textContent=decay.value;
+overdriveSlider.oninput = ()=>{ overdrive.curve=makeOD(overdriveSlider.value); odVal.textContent=overdriveSlider.value; };
+delayTime.oninput = ()=>{ delay.delayTime.value=delayTime.value; dTimeVal.textContent=delayTime.value; };
+delayFeedback.oninput = ()=>{ dFb.gain.value=delayFeedback.value; dFbVal.textContent=delayFeedback.value; };
+
+function resetOverdrive(){ overdriveSlider.value=0; overdrive.curve=makeOD(0); odVal.textContent="0"; }
+function resetDelayTime(){ delayTime.value=0.2; delay.delayTime.value=0.2; dTimeVal.textContent="0.2"; }
+function resetDelayFeedback(){ delayFeedback.value=0.3; dFb.gain.value=0.3; dFbVal.textContent="0.3"; }
+
+/* ---------------------------------------------------------
+   BASS SEQUENCER
+--------------------------------------------------------- */
+let sequence=[];
+const baseNote=36; // C2
+for(let i=0;i<16;i++)
+  sequence.push({note:baseNote, active:false, accent:false, slide:false});
+
+const seqDiv = I("seq");
+
+function renderSeq(play=-1){
+  seqDiv.innerHTML="";
+  sequence.forEach((s,i)=>{
+    let box=document.createElement("div");
+    box.className="step-container";
+
+    let btn=document.createElement("div");
+    btn.className="step"+(s.active?" active":"");
+    if(i===play) btn.classList.add("playing");
+    btn.textContent = midiName(s.note);
+    btn.onclick=()=>{ s.active=!s.active; renderSeq(play); };
+
+    let up=document.createElement("button");
+    up.className="pbtn"; up.textContent="↑";
+    up.onclick=(e)=>{e.stopPropagation(); s.note++; renderSeq(play);};
+
+    let dn=document.createElement("button");
+    dn.className="pbtn"; dn.textContent="↓";
+    dn.onclick=(e)=>{e.stopPropagation(); s.note--; renderSeq(play);};
+
+    let a=document.createElement("button");
+    a.className="pbtn"; a.textContent="A";
+    a.style.color=s.accent?"yellow":"#888";
+    a.onclick=(e)=>{e.stopPropagation(); s.accent=!s.accent; renderSeq(play);};
+
+    let sl=document.createElement("button");
+    sl.className="pbtn"; sl.textContent="S";
+    sl.style.color=s.slide?"cyan":"#888";
+    sl.onclick=(e)=>{e.stopPropagation(); s.slide=!s.slide; renderSeq(play);};
+
+    box.appendChild(btn); box.appendChild(up); box.appendChild(dn); 
+    box.appendChild(a); box.appendChild(sl);
+
+    seqDiv.appendChild(box);
+  });
+}
+renderSeq();
+
+function midiName(n){
+  const names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  return names[n%12] + Math.floor(n/12);
+}
+
+/* ---------------------------------------------------------
+   DRUMS
+--------------------------------------------------------- */
+let drumSeq={kick:[], snare:[], hihat:[]};
+["kick","snare","hihat"].forEach(d=>{ for(let i=0;i<16;i++) drumSeq[d].push(false); });
+
+const drumDiv = I("drumSeq");
+
+function renderDrum(play=-1){
+  drumDiv.innerHTML="";
+  ["kick","snare","hihat"].forEach(d=>{
+    drumSeq[d].forEach((st,i)=>{
+      let b=document.createElement("div");
+      b.className="dstep step"+(st?" active":"");
+      if(i===play) b.classList.add("playing");
+      b.textContent=d[0].toUpperCase();
+      b.onclick=()=>{ drumSeq[d][i]=!drumSeq[d][i]; renderDrum(play); };
+      drumDiv.appendChild(b);
+    });
+  });
+}
+renderDrum();
+
+/* DRUM SAMPLE UPLOAD */
+let drumBuffers={kick:null, snare:null, hihat:null};
+
+function loadDrum(elem,type){
+  if(!elem.files.length) return;
+  let r=new FileReader();
+  r.onload = async e=>{
+    drumBuffers[type] = await ctx.decodeAudioData(e.target.result);
+  };
+  r.readAsArrayBuffer(elem.files[0]);
+}
+
+I("kickFile").onchange=()=>loadDrum(I("kickFile"),"kick");
+I("snareFile").onchange=()=>loadDrum(I("snareFile"),"snare");
+I("hihatFile").onchange=()=>loadDrum(I("hihatFile"),"hihat");
+
+function trigDrum(type){
+  if(drumBuffers[type]){
+    let s=ctx.createBufferSource();
+    s.buffer=drumBuffers[type];
+    s.connect(ctx.destination);
+    s.start();
+    return;
+  }
+  // fallback
+  let o=ctx.createOscillator(), g=ctx.createGain();
+  g.connect(ctx.destination);
+  if(type==="kick"){
+    o.type="sine";
+    o.frequency.setValueAtTime(120,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(40,ctx.currentTime+0.1);
+    g.gain.setValueAtTime(1,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);
+  } else if(type==="snare"){
+    o.type="triangle";
+    g.gain.setValueAtTime(0.5,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.15);
+  } else {
+    o.type="square";
+    o.frequency.value=4000;
+    g.gain.setValueAtTime(0.3,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.05);
+  }
+  o.connect(g); o.start(); o.stop(ctx.currentTime+0.2);
+}
+
+/* ---------------------------------------------------------
+   PLAYBACK
+--------------------------------------------------------- */
+let osc=null, step=0, timer=null, prevFreq=null;
+
+function midiFreq(n){ return 440*Math.pow(2,(n-69)/12); }
+
+function playStep(s){
+  let now = ctx.currentTime;
+  if(!s.active){ amp.gain.setValueAtTime(0.0001,now); return; }
+
+  let p = parseInt(pitchShift.value);
+  let f = midiFreq(s.note + p);
+
+  if(s.slide && prevFreq){
+    osc.frequency.setValueAtTime(prevFreq,now);
+    osc.frequency.linearRampToValueAtTime(f,now+0.12);
+  } else {
+    osc.frequency.setValueAtTime(f,now);
+  }
+  prevFreq=f;
+
+  let accent = s.accent?1.4:1.0;
+
+  let baseLP = parseFloat(lpCutoff.value);
+  let envAmt = parseFloat(envMod.value);
+  let peakLP = baseLP + envAmt*5000;
+
+  lp.frequency.cancelScheduledValues(now);
+  lp.frequency.setValueAtTime(baseLP,now);
+  lp.frequency.linearRampToValueAtTime(peakLP,now+0.05);
+  lp.frequency.exponentialRampToValueAtTime(baseLP,now+parseFloat(decay.value));
+
+  amp.gain.cancelScheduledValues(now);
+  amp.gain.setValueAtTime(0.0001,now);
+  amp.gain.linearRampToValueAtTime(accent,now+0.01);
+  amp.gain.exponentialRampToValueAtTime(0.0001,now+parseFloat(decay.value));
+}
+
+function startPlay(){
+  osc = ctx.createOscillator();
+  osc.type = waveform.value;
+  osc.connect(overdrive);
+  overdrive.connect(lp);
+  osc.start();
+
+  step=0;
+  let interval = (60 / bpm.value) / 4 * 1000;
+
+  timer = setInterval(()=>{
+    playStep(sequence[step]);
+    ["kick","snare","hihat"].forEach(d=>{ if(drumSeq[d][step]) trigDrum(d); });
+
+    renderSeq(step);
+    renderDrum(step);
+
+    step = (step+1)%16;
+  }, interval);
+}
+
+function stopPlay(){
+  if(osc) osc.stop();
+  osc=null;
+  clearInterval(timer);
+  renderSeq(); renderDrum();
+}
+
+let playing=false;
+I("play").onclick=()=>{
+  if(!playing){ startPlay(); playing=true; }
+  else{ stopPlay(); playing=false; }
+};
+
+/* ---------------------------------------------------------
+   SAVE / LOAD PATTERN
+--------------------------------------------------------- */
+function saveSequence(){
+  const data={synth:sequence, drums:drumSeq};
+  const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download="pattern.json"; a.click();
+  URL.revokeObjectURL(url);
+}
+function loadSequence(file){
+  let r=new FileReader();
+  r.onload=e=>{
+    let d=JSON.parse(e.target.result);
+    sequence=d.synth||sequence;
+    drumSeq=d.drums||drumSeq;
+    renderSeq(); renderDrum();
+  };
+  r.readAsText(file);
+}
+
+/* ---------------------------------------------------------
+   SPECTRUM
+--------------------------------------------------------- */
+const can = I("spectrum"), g = can.getContext("2d");
+function draw(){
+  requestAnimationFrame(draw);
+  let data=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(data);
+  g.fillStyle="black"; g.fillRect(0,0,can.width,can.height);
+  let scale=scaleSwitch.value;
+  for(let i=0;i<data.length;i++){
+    let x=(scale==="linear")
+      ? i*can.width/data.length
+      : Math.log10(1+i)/Math.log10(data.length)*can.width;
+    let h=data[i]*(can.height/255);
+    g.fillStyle="lime";
+    g.fillRect(x,can.height-h,can.width/data.length,h);
+  }
+}
+draw();
+</script>
+</body>
+</html>
