@@ -83,7 +83,7 @@ async function sendAudio() {
             <h3>Results</h3>
             <p><strong>Detected:</strong></p>
             <p>eSpeak: <code>${data.transcription}</code></p>
-            <p>IPA: <code>${data.transcription}</code></p>
+            <p>IPA: <code>${data.detected_ipa}</code></p>
             <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
             <p><strong>Expected (${selectedAccent}):</strong></p>
             <p>eSpeak: <code>${data.expected_espeak}</code></p>
