@@ -6,92 +6,136 @@ from difflib import SequenceMatcher
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 
-# Load wav2vec2 model
-try:
-    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
-    model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
-    print("✓ Wav2Vec2 loaded")
-except Exception as e:
-    print(f"✗ Model load failed: {e}")
-    processor = None
-    model = None
-
-# ARPABET to IPA mapping
-ARPABET_TO_IPA = {
-    "AA": "ɑ", "AE": "æ", "AH": "ə", "AO": "ɔ", "AW": "aʊ",
-    "AY": "aɪ", "EH": "ɛ", "ER": "ɚ", "EY": "eɪ", "IH": "ɪ",
-    "IY": "i", "OW": "oʊ", "OY": "ɔɪ", "UH": "ʊ", "UW": "u",
-    "B": "b", "CH": "tʃ", "D": "d", "DH": "ð", "F": "f",
-    "G": "ɡ", "HH": "h", "JH": "dʒ", "K": "k", "L": "l",
-    "M": "m", "N": "n", "NG": "ŋ", "P": "p", "R": "ɹ",
-    "S": "s", "SH": "ʃ", "T": "t", "TH": "θ", "V": "v",
-    "W": "w", "Y": "j", "Z": "z", "ZH": "ʒ"
+# Load eSpeak wav2vec2 models
+MODELS = {
+    "wav2vec2_lv60": {
+        "name": "Wav2Vec2 LV-60 eSpeak",
+        "processor": None,
+        "model": None
+    },
+    "wav2vec2_xlsr53": {
+        "name": "Wav2Vec2 XLSR-53 eSpeak",
+        "processor": None,
+        "model": None
+    }
 }
 
-# Phoneme mappings
+try:
+    MODELS["wav2vec2_lv60"]["processor"] = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-lv-60-espeak-cv-ft")
+    MODELS["wav2vec2_lv60"]["model"] = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-lv-60-espeak-cv-ft")
+    print("✓ Wav2Vec2 LV-60 eSpeak loaded")
+except Exception as e:
+    print(f"✗ Wav2Vec2 LV-60 load failed: {e}")
+
+try:
+    MODELS["wav2vec2_xlsr53"]["processor"] = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-xlsr-53-espeak-cv-ft")
+    MODELS["wav2vec2_xlsr53"]["model"] = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-xlsr-53-espeak-cv-ft")
+    print("✓ Wav2Vec2 XLSR-53 eSpeak loaded")
+except Exception as e:
+    print(f"✗ Wav2Vec2 XLSR-53 load failed: {e}")
+
+# eSpeak to IPA mapping
+ESPEAK_TO_IPA = {
+    "eI": "eɪ",
+    "aI": "aɪ",
+    "aU": "aʊ",
+    "OI": "ɔɪ",
+    "O:": "ɔː",
+    "o": "oʊ",
+    "@": "ə",
+    "3:": "ɜː",
+    "I": "ɪ",
+    "i:": "iː",
+    "U": "ʊ",
+    "u:": "uː",
+    "A": "ʌ",
+    "æ": "æ",
+    "A:": "ɑː",
+    "p": "p",
+    "b": "b",
+    "t": "t",
+    "d": "d",
+    "k": "k",
+    "g": "ɡ",
+    "m": "m",
+    "n": "n",
+    "N": "ŋ",
+    "f": "f",
+    "v": "v",
+    "T": "θ",
+    "D": "ð",
+    "s": "s",
+    "z": "z",
+    "S": "ʃ",
+    "Z": "ʒ",
+    "tS": "tʃ",
+    "dZ": "dʒ",
+    "h": "h",
+    "l": "l",
+    "r": "ɹ",
+    "j": "j",
+    "w": "w",
+}
+
+# Phoneme mappings with eSpeak and IPA
 WORDS = {
     "tomato": {
-        "GA": {"arpabet": "T AH M EY T OW", "ipa": "təˈmeɪtoʊ"},
-        "RP": {"arpabet": "T AH M AA T AH", "ipa": "təˈmɑːtəʊ"}
+        "GA": {"espeak": "t @ m 3: t @U", "ipa": "təˈmeɪtoʊ"},
+        "RP": {"espeak": "t @ m A: t @U", "ipa": "təˈmɑːtəʊ"}
     },
     "dance": {
-        "GA": {"arpabet": "D AE N S", "ipa": "dæns"},
-        "RP": {"arpabet": "D AA N S", "ipa": "dɑːns"}
+        "GA": {"espeak": "d æ n s", "ipa": "dæns"},
+        "RP": {"espeak": "d A: n s", "ipa": "dɑːns"}
     },
     "bath": {
-        "GA": {"arpabet": "B AE TH", "ipa": "bæθ"},
-        "RP": {"arpabet": "B AA TH", "ipa": "bɑːθ"}
+        "GA": {"espeak": "b æ T", "ipa": "bæθ"},
+        "RP": {"espeak": "b A: T", "ipa": "bɑːθ"}
     },
     "grass": {
-        "GA": {"arpabet": "G R AE S", "ipa": "ɡræs"},
-        "RP": {"arpabet": "G R AA S", "ipa": "ɡrɑːs"}
+        "GA": {"espeak": "g r æ s", "ipa": "ɡræs"},
+        "RP": {"espeak": "g r A: s", "ipa": "ɡrɑːs"}
     },
     "lot": {
-        "GA": {"arpabet": "L AA T", "ipa": "lɑt"},
-        "RP": {"arpabet": "L AO T", "ipa": "lɒt"}
+        "GA": {"espeak": "l A t", "ipa": "lɑt"},
+        "RP": {"espeak": "l O t", "ipa": "lɒt"}
     },
     "cloth": {
-        "GA": {"arpabet": "K L AO TH", "ipa": "klɔθ"},
-        "RP": {"arpabet": "K L AO TH", "ipa": "klɒθ"}
+        "GA": {"espeak": "k l O T", "ipa": "klɔθ"},
+        "RP": {"espeak": "k l O T", "ipa": "klɒθ"}
     },
     "phone": {
-        "GA": {"arpabet": "F OW N", "ipa": "foʊn"},
-        "RP": {"arpabet": "F AH N", "ipa": "fəʊn"}
+        "GA": {"espeak": "f @U n", "ipa": "foʊn"},
+        "RP": {"espeak": "f @U n", "ipa": "fəʊn"}
     },
     "schedule": {
-        "GA": {"arpabet": "S K EH JH UL", "ipa": "ˈskɛdʒuːl"},
-        "RP": {"arpabet": "SH EH JH UL", "ipa": "ˈʃɛdʒuːl"}
+        "GA": {"espeak": "s k E dZ u: l", "ipa": "ˈskɛdʒuːl"},
+        "RP": {"espeak": "S E dZ u: l", "ipa": "ˈʃɛdʒuːl"}
     },
     "lever": {
-        "GA": {"arpabet": "L EH V ER", "ipa": "ˈlɛvɚ"},
-        "RP": {"arpabet": "L IY V ER", "ipa": "ˈliːvə"}
+        "GA": {"espeak": "l E v @", "ipa": "ˈlɛvɚ"},
+        "RP": {"espeak": "l i: v @", "ipa": "ˈliːvə"}
     },
     "route": {
-        "GA": {"arpabet": "R UW T", "ipa": "rut"},
-        "RP": {"arpabet": "R AW T", "ipa": "raʊt"}
+        "GA": {"espeak": "r u: t", "ipa": "rut"},
+        "RP": {"espeak": "r aU t", "ipa": "raʊt"}
     },
 }
 
-def arpabet_to_ipa(arpabet_str):
-    """Convert ARPABET phonemes to IPA"""
-    if not arpabet_str or arpabet_str == "N/A":
+def espeak_to_ipa(espeak_seq):
+    """Convert eSpeak phonemes to IPA"""
+    if not espeak_seq or espeak_seq == "N/A":
         return "N/A"
     
-    phonemes = arpabet_str.split()
-    ipa_phonemes = []
-    
-    for phoneme in phonemes:
-        clean_phoneme = ''.join(c for c in phoneme if not c.isdigit())
-        ipa_phonemes.append(ARPABET_TO_IPA.get(clean_phoneme, clean_phoneme))
-    
-    return ''.join(ipa_phonemes)
+    tokens = espeak_seq.split()
+    ipa_tokens = [ESPEAK_TO_IPA.get(t, t) for t in tokens]
+    return "".join(ipa_tokens)
 
 def calculate_score(detected, expected):
     """Calculate similarity score 0-100 using SequenceMatcher"""
     if expected == "N/A":
         return 0
     
-    matcher = SequenceMatcher(None, detected.upper(), expected.upper())
+    matcher = SequenceMatcher(None, detected.lower(), expected.lower())
     ratio = matcher.ratio()
     return int(ratio * 100)
 
@@ -101,7 +145,10 @@ def index():
 
 @app.route('/models')
 def get_models():
-    available = [{"id": "wav2vec2", "name": "Wav2Vec2 Base"}]
+    available = []
+    for model_id, model_data in MODELS.items():
+        if model_data["model"]:
+            available.append({"id": model_id, "name": model_data["name"]})
     return jsonify(available)
 
 @app.route('/analyze', methods=['POST'])
@@ -109,12 +156,13 @@ def analyze():
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file"}), 400
     
-    if not model or not processor:
-        return jsonify({"error": "Model not loaded"}), 500
-    
     audio_file = request.files['audio']
     accent = request.form.get('accent', 'GA')
     word = request.form.get('word', '')
+    model_id = request.form.get('model', 'wav2vec2_lv60')
+    
+    if model_id not in MODELS or not MODELS[model_id]["model"]:
+        return jsonify({"error": "Model not available"}), 400
     
     audio_path = '/tmp/audio.wav'
     audio_file.save(audio_path)
@@ -125,6 +173,9 @@ def analyze():
         return jsonify({"error": f"Audio load failed: {e}"}), 400
     
     try:
+        processor = MODELS[model_id]["processor"]
+        model = MODELS[model_id]["model"]
+        
         inputs = processor(speech, sampling_rate=sr, return_tensors="pt")
         with torch.no_grad():
             logits = model(**inputs).logits
@@ -135,16 +186,16 @@ def analyze():
         return jsonify({"error": f"Inference failed: {e}"}), 500
     
     phoneme_data = WORDS.get(word, {}).get(accent, {})
-    expected_arpabet = phoneme_data.get("arpabet", "N/A")
+    expected_espeak = phoneme_data.get("espeak", "N/A")
     expected_ipa = phoneme_data.get("ipa", "N/A")
-    detected_ipa = arpabet_to_ipa(transcription)
+    detected_ipa = espeak_to_ipa(transcription)
     
-    score = calculate_score(transcription, expected_arpabet)
+    score = calculate_score(transcription, expected_espeak)
     
     return jsonify({
         "transcription": transcription,
         "detected_ipa": detected_ipa,
-        "expected_arpabet": expected_arpabet,
+        "expected_espeak": expected_espeak,
         "expected_ipa": expected_ipa,
         "score": score,
         "match": score == 100

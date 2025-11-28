@@ -82,11 +82,11 @@ async function sendAudio() {
         <div class="result-box">
             <h3>Results</h3>
             <p><strong>Detected:</strong></p>
-            <p>ARPABET: <code>${data.transcription}</code></p>
-            <p>IPA: <code>${data.detected_ipa}</code></p>
+            <p>eSpeak: <code>${data.transcription}</code></p>
+            <p>IPA: <code>${data.transcription}</code></p>
             <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
             <p><strong>Expected (${selectedAccent}):</strong></p>
-            <p>ARPABET: <code>${data.expected_arpabet}</code></p>
+            <p>eSpeak: <code>${data.expected_espeak}</code></p>
             <p>IPA: <code>${data.expected_ipa}</code></p>
             <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
             <div class="score-display" style="background: ${scoreColor}; color: white; padding: 20px; border-radius: 8px; text-align: center;">
