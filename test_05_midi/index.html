@@ -313,6 +313,31 @@ function checkMicNoteHit(midi) {
   }
 }
 
+/* ============================
+      MIDI CONTROLLER INPUT
+============================= */
+navigator.requestMIDIAccess().then(midi => {
+    for (const input of midi.inputs.values()) {
+        input.onmidimessage = handleMIDI;
+    }
+});
+
+function handleMIDI(msg) {
+    const [status, note, velocity] = msg.data;
+    const cmd = status & 0xf0;
+
+    // Note On
+    if (cmd === 0x90 && velocity > 0) {
+        Tone.start();
+        playSound(note, true);
+    }
+
+    // Note Off
+    if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
+        playSound(note, false);
+    }
+}
+
 /* ======================
        SOUND + SCORING
 ====================== */
